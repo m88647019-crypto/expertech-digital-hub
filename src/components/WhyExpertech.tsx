@@ -20,7 +20,7 @@ const reasons = [
   {
     icon: Heart,
     title: "Community Driven",
-    desc: "We make digital simple for you.",
+    desc: "We make digital life simple for you.",
   },
 ];
 
@@ -38,7 +38,7 @@ const WhyExpertech = () => {
             Why <span className="text-primary">Expertech?</span>
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            We bridge the digital gap with privacy, speed, and 24/7 availability. From the heart of Eldoret to the community of Sikhendu, we make the digital world simple for you.
+            We bridge the digital gap with privacy, speed, and 24/7 availability. We make the digital world simple for you.
           </p>
         </motion.div>
 
