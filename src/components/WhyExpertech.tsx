@@ -20,7 +20,7 @@ const reasons = [
   {
     icon: Heart,
     title: "Community Driven",
-    desc: "From the heart of Eldoret to Sikhendu, we make digital simple for you.",
+    desc: "We make digital simple for you.",
   },
 ];
 
