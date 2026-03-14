@@ -33,8 +33,8 @@ const HeroSection = () => {
 
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground leading-tight mb-6">
             Your Digital Partner in{" "}
-            <span className="text-accent">Eldoret</span> &{" "}
-            <span className="text-accent">Sikhendu</span>
+            <span className="text-accent">Cyber Services</span> {" "}
+            {/* <span className="text-accent"></span> */}
           </h1>
 
           <p className="text-lg md:text-xl text-primary-foreground/80 mb-8 max-w-xl">
@@ -58,7 +58,7 @@ const HeroSection = () => {
 
           <div className="flex items-center gap-2 mt-8 text-primary-foreground/60 text-sm">
             <MapPin className="h-4 w-4" />
-            <span>Serving Eldoret Town & Sikhendu, Likuyani</span>
+            <span>Serving from the comfort of your home.</span>
           </div>
         </motion.div>
       </div>
