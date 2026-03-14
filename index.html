@@ -2,29 +2,67 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+
+    <!-- Mobile responsiveness -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Expertech Cyber — Your Digital Partner in Eldoret & Sikhendu</title>
-    <meta name="description" content="Premier cyber cafe and digital service provider in Eldoret and Sikhendu, Kenya. KRA, eCitizen, printing, design, and more. Open 24/7." />
+
+    <!-- SEO -->
+    <title>Expertech Cyber — Your Digital Partner in Cyber Services</title>
+    <meta name="description" content="Premier cyber cafe and digital service provider, Kenya. KRA, eCitizen, printing, design, and more. Open 24/7." />
     <meta name="author" content="Expertech Cyber" />
 
+    <!-- Theme color for mobile -->
+    <meta name="theme-color" content="#0f172a">
+
+    <!-- Favicons -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
     <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="manifest" href="/site.webmanifest">
 
+    <!-- Open Graph (WhatsApp / Facebook preview) -->
     <meta property="og:title" content="Expertech Cyber — Digital Services in Kenya" />
-    <meta property="og:description" content="Your trusted neighborhood tech expert in Eldoret and Sikhendu. Government portals, printing, design, and 24/7 online support." />
+    <meta property="og:description" content="Your trusted neighborhood tech expert. Government portals, printing, design, and 24/7 online support." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/android-chrome-512x512.png" />
+    <meta property="og:url" content="https://expertech-digital-hub.netlify.app" />
 
+    <!-- Twitter preview -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Expertech Cyber" />
+    <meta name="twitter:description" content="Cyber cafe and digital services in Eldoret and Sikhendu, Kenya." />
     <meta name="twitter:image" content="/android-chrome-512x512.png" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "InternetCafe",
+      "name": "Expertech Digital Hub",
+      "areaServed": "NationWide, kenya",
+      "url": "https://expertechcyberonline.netlify.app",
+      "description": "Cyber cafe and digital services including KRA, eCitizen, printing and graphic design."
+    }
+    </script>
+
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-QGYS8149HK"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-QGYS8149HK');
+</script>
+
   </head>
 
   <body>
+    <noscript>You need to enable JavaScript to run this application.</noscript>
+
     <div id="root"></div>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
