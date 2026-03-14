@@ -1,7 +1,7 @@
 exports.handler = async () => {
 
-const consumerKey = process.env.Iau90vz3dwhGpIxKSKPOR42bmqcG9JJr7IUtMLHU7PqvVAc6
-const consumerSecret = process.env.bc8AFXpVqG2zBHRUZRdAGXvhXvpiNok9B0ZcveGo5xGd2NH2u6S2ZACn4G2iHSII
+const consumerKey = process.env.MPESA_CONSUMER_KEY
+const consumerSecret = process.env.MPESA_CONSUMER_SECRET
 
 const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64")
 
