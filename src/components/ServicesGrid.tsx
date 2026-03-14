@@ -6,16 +6,19 @@ import {
   ScanLine,
   BookOpen,
   ShieldCheck,
-  CreditCard,
   GraduationCap,
   Palette,
   Monitor,
   Package,
-  Smartphone,
   FileCheck,
   ClipboardList,
   Layers,
   BadgeCheck,
+  // New imports for Career Services
+  Briefcase,
+  FileUser,
+  Globe,
+  Share2,
 } from "lucide-react";
 
 const categories = [
@@ -39,7 +42,7 @@ const categories = [
       { name: "Scanning", icon: ScanLine },
       { name: "Binding", icon: Layers },
       { name: "Lamination", icon: FileText },
-      { name: "CV Revamping", icon: FileCheck },
+      { name: "Photocopying", icon: Layers },
     ],
   },
   {
@@ -66,7 +69,7 @@ const categories = [
 const ServicesGrid = () => {
   return (
     <section id="services" className="py-16 md:py-20">
-      <div className="container">
+      <div className="container px-4 mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -77,7 +80,7 @@ const ServicesGrid = () => {
             Everything You Need, <span className="text-primary">One Stop</span>
           </h2>
           <p className="text-muted-foreground max-w-lg mx-auto">
-            From government portals to printing and design — we handle it all so you don't have to.
+            From government portals to printing and career growth — we handle it all so you don't have to.
           </p>
         </motion.div>
 
@@ -89,7 +92,7 @@ const ServicesGrid = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: catIdx * 0.1 }}
-              className="bg-card rounded-xl p-6 card-shadow hover:card-shadow-hover transition-shadow"
+              className="bg-card rounded-xl p-6 shadow-sm border border-border hover:shadow-md transition-shadow"
             >
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10 mb-4">
                 <cat.icon className="h-6 w-6 text-primary" />
