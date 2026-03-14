@@ -39,7 +39,7 @@ Amount: amount,
 PartyA: phone,
 PartyB: shortcode,
 PhoneNumber: phone,
-CallBackURL: "https://expertechcyberonline/mpesa-callback",
+CallBackURL: "https://expertechcyberonline.netlify.app/.netlify/functions/mpesaCallback",
 AccountReference: "ExpertechPrint",
 TransactionDesc: "Print Order"
 })
