@@ -126,18 +126,41 @@ const UploadPrint = () => {
     if (step > 0) setStep(step - 1);
   };
 
-  // ── Payment simulation ──
-  const simulatePayment = () => {
+  // ── Payment via real STK Push ──
+  const formatPhone = (raw: string): string => {
+    const digits = raw.replace(/\s+/g, "").replace(/^\+/, "");
+    if (digits.startsWith("0")) return "254" + digits.slice(1);
+    if (digits.startsWith("254")) return digits;
+    return digits;
+  };
+
+  const triggerPayment = async () => {
     if (!phone.match(/^(\+?254|0)\d{9}$/)) {
       toast({ title: "Enter a valid Kenyan phone number", variant: "destructive" });
       return;
     }
     setPaying(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch("/.netlify/functions/stkPush", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: formatPhone(phone), amount: totalPrice }),
+      });
+      const result = await res.json();
+      console.log("STK Push response:", result);
+
+      if (result.ResponseCode === "0" || result.CustomerMessage) {
+        setPaid(true);
+        toast({ title: "STK Push sent", description: "Check your phone to complete payment." });
+      } else {
+        toast({ title: "Payment request failed", description: "Please try again.", variant: "destructive" });
+      }
+    } catch (err) {
+      console.error("STK Push error:", err);
+      toast({ title: "Payment request failed", description: "Please try again.", variant: "destructive" });
+    } finally {
       setPaying(false);
-      setPaid(true);
-      toast({ title: "Payment Successful!", description: "Your print order has been received." });
-    }, 3000);
+    }
   };
 
   // ── WhatsApp ──
@@ -345,7 +368,7 @@ const UploadPrint = () => {
 
                 <button
                   type="button"
-                  onClick={simulatePayment}
+                  onClick={triggerPayment}
                   disabled={paying}
                   className="w-full rounded-lg bg-[#4CAF50] py-3.5 font-semibold text-white transition-all hover:brightness-110 shadow-md flex items-center justify-center gap-2 disabled:opacity-60"
                 >
