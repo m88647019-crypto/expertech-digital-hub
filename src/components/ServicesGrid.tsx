@@ -52,11 +52,13 @@ const categories = [
     ],
   },
   {
-    title: "Financial Services",
-    icon: CreditCard,
+    title: "Career Services",
+    icon: Briefcase,
     services: [
-      { name: "M-Pesa Services", icon: Smartphone },
-      { name: "Banking Agency", icon: CreditCard },
+      { name: "Professional CV Writing", icon: FileUser },
+      { name: "Online Job Applications", icon: Globe },
+      { name: "Cover Letter Design", icon: FileText },
+      { name: "LinkedIn Optimization", icon: Share2 },
     ],
   },
 ];
