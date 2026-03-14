@@ -368,7 +368,7 @@ const UploadPrint = () => {
 
                 <button
                   type="button"
-                  onClick={simulatePayment}
+                  onClick={triggerPayment}
                   disabled={paying}
                   className="w-full rounded-lg bg-[#4CAF50] py-3.5 font-semibold text-white transition-all hover:brightness-110 shadow-md flex items-center justify-center gap-2 disabled:opacity-60"
                 >
