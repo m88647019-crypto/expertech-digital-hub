@@ -61,7 +61,6 @@ const categories = [
       { name: "Professional CV Writing", icon: FileUser },
       { name: "Online Job Applications", icon: Globe },
       { name: "Cover Letter Design", icon: FileText },
-      { name: "LinkedIn Optimization", icon: Share2 },
     ],
   },
 ];
