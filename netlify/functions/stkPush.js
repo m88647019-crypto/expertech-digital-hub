@@ -23,7 +23,7 @@ shortcode + passkey + timestamp
 ).toString("base64")
 
 const stkResponse = await fetch(
-"https://sandbox.safaricom.co.k/mpesa/stkpush/v1/processrequest",
+"https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
 {
 method: "POST",
 headers: {
