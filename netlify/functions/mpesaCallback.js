@@ -1,35 +1,46 @@
 exports.handler = async (event) => {
 
-  const body = JSON.parse(event.body)
+  try {
 
-  console.log("Full Callback:", body)
+    const body = JSON.parse(event.body)
 
-  const stkCallback = body.Body.stkCallback
+    console.log("M-Pesa Callback:", JSON.stringify(body))
 
-  const resultCode = stkCallback.ResultCode
-  const resultDesc = stkCallback.ResultDesc
+    const stkCallback = body.Body.stkCallback
+    const resultCode = stkCallback.ResultCode
+    const resultDesc = stkCallback.ResultDesc
 
-  if (resultCode === 0) {
+    if (resultCode === 0) {
 
-    const metadata = stkCallback.CallbackMetadata.Item
+      const metadata = stkCallback.CallbackMetadata.Item
 
-    const amount = metadata.find(i => i.Name === "Amount").Value
-    const receipt = metadata.find(i => i.Name === "MpesaReceiptNumber").Value
-    const phone = metadata.find(i => i.Name === "PhoneNumber").Value
+      const amount = metadata.find(i => i.Name === "Amount").Value
+      const receipt = metadata.find(i => i.Name === "MpesaReceiptNumber").Value
+      const phone = metadata.find(i => i.Name === "PhoneNumber").Value
 
-    console.log("PAYMENT SUCCESS")
-    console.log("Amount:", amount)
-    console.log("Receipt:", receipt)
-    console.log("Phone:", phone)
+      console.log("Payment Successful")
+      console.log("Amount:", amount)
+      console.log("Receipt:", receipt)
+      console.log("Phone:", phone)
 
-  } else {
+    } else {
 
-    console.log("PAYMENT FAILED:", resultDesc)
+      console.log("Payment Failed:", resultDesc)
+
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: "Callback received" })
+    }
+
+  } catch (error) {
+
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message })
+    }
 
   }
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: "Callback received" })
-  }
 }
