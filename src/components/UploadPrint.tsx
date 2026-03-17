@@ -141,8 +141,10 @@ const UploadPrint = () => {
       toast({ title: "Enter a valid Kenyan phone number", variant: "destructive" });
       return;
     }
+
     setPaying(true);
     setPaymentStatus("pending");
+
     try {
       const res = await fetch("/api/stkPush", {
         method: "POST",
@@ -154,58 +156,90 @@ const UploadPrint = () => {
         throw new Error(`Server error: ${res.status}`);
       }
 
-      const result = await res.json();
+      const text = await res.text();
+      let result: any;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error("Invalid JSON from /api/stkPush");
+      }
+
       console.log("STK Push response:", result);
 
       if (result.success && result.checkoutRequestID) {
+        console.log("📤 Sent CheckoutRequestID:", result.checkoutRequestID);
         setCheckoutRequestID(result.checkoutRequestID);
-        toast({ title: "STK Push sent", description: "Check your phone to complete payment." });
+        toast({ title: "STK Push sent", description: "Check your phone to complete payment" });
         startPolling(result.checkoutRequestID);
-      } else {
-        setPaymentStatus("failed");
-        toast({ title: "Payment request failed", description: result.error || "Please try again.", variant: "destructive" });
-        setPaying(false);
+        return;
       }
+
+      setPaymentStatus("failed");
+      setPaying(false);
+      toast({ title: "Payment request failed", description: result.error || "Something went wrong, try again", variant: "destructive" });
     } catch (err) {
       console.error("STK Push error:", err);
       setPaymentStatus("failed");
-      toast({ title: "Something went wrong", description: "Payment request failed. Please try again.", variant: "destructive" });
       setPaying(false);
+      toast({ title: "Something went wrong, try again", description: "Payment request failed", variant: "destructive" });
     }
   };
 
   const startPolling = (id: string) => {
     let elapsed = 0;
-    const POLL_INTERVAL = 5000; // 5s — gives Safaricom time to process
-    const TIMEOUT = 90000; // 90s timeout
-    const interval = setInterval(async () => {
+    const POLL_INTERVAL = 3000;
+    const TIMEOUT = 60000;
+
+    const interval = window.setInterval(async () => {
       elapsed += POLL_INTERVAL;
-      if (elapsed > TIMEOUT) {
-        clearInterval(interval);
-        setPaymentStatus("failed");
+
+      if (elapsed >= TIMEOUT) {
+        window.clearInterval(interval);
         setPaying(false);
-        toast({ title: "Payment timeout", description: "No response received. Please try again.", variant: "destructive" });
+        setPaymentStatus("idle");
+        toast({ title: "Payment still pending", description: "No response yet. Please check your phone or try again." });
         return;
       }
+
       try {
-        const res = await fetch(`/api/checkStatus?id=${encodeURIComponent(id)}&t=${Date.now()}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        console.log("Payment status poll:", data);
+        const res = await fetch(`/api/checkStatus?id=${encodeURIComponent(id)}&t=${Date.now()}`, {
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          console.warn("Status poll failed:", res.status);
+          return;
+        }
+
+        const text = await res.text();
+        let data: any;
+
+        try {
+          data = JSON.parse(text);
+        } catch {
+          console.error("Invalid JSON from /api/checkStatus");
+          return;
+        }
+
+        console.log("🔄 Queried ID:", id, data);
+
         if (data.status === "success") {
-          clearInterval(interval);
+          window.clearInterval(interval);
           setPaymentStatus("success");
           setPaid(true);
           setPaying(false);
           toast({ title: "Payment successful ✅", description: `Receipt: ${data.receipt || "Confirmed"}` });
-        } else if (data.status === "failed") {
-          clearInterval(interval);
+          return;
+        }
+
+        if (data.status === "failed") {
+          window.clearInterval(interval);
           setPaymentStatus("failed");
           setPaying(false);
           toast({ title: "Payment failed ❌", description: data.reason || "The transaction was not completed.", variant: "destructive" });
         }
-      } catch {
-        // silently retry on network error
+      } catch (error) {
+        console.warn("Polling error, retrying:", error);
       }
     }, POLL_INTERVAL);
   };
