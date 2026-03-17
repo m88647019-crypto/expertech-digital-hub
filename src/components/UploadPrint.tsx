@@ -226,6 +226,8 @@ const UploadPrint = () => {
     setPhone("");
     setPaying(false);
     setPaid(false);
+    setPaymentStatus("idle");
+    setCheckoutRequestID(null);
     setStep(0);
   };
 
