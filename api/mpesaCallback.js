@@ -1,101 +1,61 @@
-// ✅ Ensure shared memory exists (for sandbox testing)
+import { getPaymentsStore } from "../lib/paymentStore.js";
+
 if (!global.payments) {
   global.payments = {};
 }
 
 export default async function handler(req, res) {
-  // ✅ Prevent caching issues
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
 
   try {
-    // ✅ Only allow POST (Safaricom callback)
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const body = req.body;
-
-    console.log("📩 M-Pesa Callback:", JSON.stringify(body, null, 2));
-
-    const stkCallback = body?.Body?.stkCallback;
-
-    // ✅ Validate structure
+    const stkCallback = req.body?.Body?.stkCallback;
     if (!stkCallback) {
       console.warn("⚠️ Invalid callback structure");
       return res.status(200).json({ message: "Invalid structure handled" });
     }
 
-    const resultCode = stkCallback.ResultCode;
-    const resultDesc = stkCallback.ResultDesc;
-
-    // ✅ SAFER CheckoutRequestID extraction
-    const checkoutRequestID =
-      stkCallback.CheckoutRequestID ||
-      stkCallback.CheckoutRequestId ||
-      null;
-
+    const checkoutRequestID = stkCallback.CheckoutRequestID ?? stkCallback.CheckoutRequestId ?? null;
     if (!checkoutRequestID) {
-      console.warn("⚠️ Missing CheckoutRequestID");
-      return res.status(200).json({ message: "Missing ID handled" });
+      console.warn("⚠️ Missing CheckoutRequestID in callback");
+      return res.status(200).json({ message: "Missing CheckoutRequestID handled" });
     }
 
-    // ✅ Extract metadata safely
     const metadata = stkCallback.CallbackMetadata?.Item || [];
-
-    const getValue = (name) =>
-      metadata.find((i) => i.Name === name)?.Value ?? null;
+    const getValue = (name) => metadata.find((item) => item.Name === name)?.Value ?? null;
 
     const amount = getValue("Amount");
     const receipt = getValue("MpesaReceiptNumber");
     const phone = getValue("PhoneNumber");
 
-    // ✅ SUCCESS CASE
-    if (resultCode === 0) {
-      console.log("✅ Payment Successful:", {
-        checkoutRequestID,
-        amount,
-        receipt,
-        phone,
-      });
+    const payments = getPaymentsStore();
+    const resultCode = Number(stkCallback.ResultCode);
 
-      global.payments[checkoutRequestID] = {
+    if (resultCode === 0) {
+      payments[checkoutRequestID] = {
         status: "success",
         amount,
         receipt,
         phone,
-        resultCode,
-        resultDesc,
-        updatedAt: Date.now(),
       };
-
     } else {
-      // ❌ FAILURE CASE
-      console.log("❌ Payment Failed:", {
-        checkoutRequestID,
-        resultDesc,
-      });
-
-      global.payments[checkoutRequestID] = {
+      payments[checkoutRequestID] = {
         status: "failed",
-        reason: resultDesc,
-        resultCode,
-        updatedAt: Date.now(),
+        reason: stkCallback.ResultDesc || "Payment failed",
       };
     }
 
-    console.log("🧠 Current Payments Store:", global.payments);
+    console.log("🧾 Stored checkoutRequestID:", checkoutRequestID);
+    console.log("🧠 Stored payment state:", payments[checkoutRequestID]);
 
-    // ✅ ALWAYS return 200 (VERY IMPORTANT for Safaricom)
-    return res.status(200).json({
-      message: "Callback processed successfully",
-    });
-
+    return res.status(200).json({ message: "Callback processed successfully" });
   } catch (error) {
     console.error("🚨 CALLBACK ERROR:", error);
-
-    // ⚠️ STILL return 200 (critical for Safaricom)
-    return res.status(200).json({
-      message: "Error handled safely",
-    });
+    return res.status(200).json({ message: "Error handled safely" });
   }
 }
