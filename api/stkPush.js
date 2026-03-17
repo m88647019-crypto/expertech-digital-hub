@@ -1,18 +1,19 @@
+if (!global.payments) {
+  global.payments = {};
+}
+
 export default async function handler(req, res) {
   try {
-    // ✅ Only allow POST
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    // ✅ Get data from request body
     const { phone, amount } = req.body;
 
     if (!phone || !amount) {
       return res.status(400).json({ error: "Phone and amount are required" });
     }
 
-    // ✅ Environment variables
     const consumerKey = process.env.MPESA_CONSUMER_KEY;
     const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
     const shortcode = process.env.MPESA_SHORTCODE;
@@ -22,17 +23,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Missing environment variables" });
     }
 
-    // ✅ Generate auth
     const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
 
-    // ✅ Get access token
     const tokenResponse = await fetch(
       "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
       {
         method: "GET",
-        headers: {
-          Authorization: `Basic ${auth}`,
-        },
+        headers: { Authorization: `Basic ${auth}` },
       }
     );
 
@@ -44,18 +41,13 @@ export default async function handler(req, res) {
 
     const accessToken = tokenData.access_token;
 
-    // ✅ Generate timestamp
     const timestamp = new Date()
       .toISOString()
       .replace(/[-:.TZ]/g, "")
       .slice(0, 14);
 
-    // ✅ Generate password
-    const password = Buffer.from(
-      shortcode + passkey + timestamp
-    ).toString("base64");
+    const password = Buffer.from(shortcode + passkey + timestamp).toString("base64");
 
-    // ✅ STK Push request
     const stkResponse = await fetch(
       "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
       {
@@ -73,11 +65,7 @@ export default async function handler(req, res) {
           PartyA: phone,
           PartyB: shortcode,
           PhoneNumber: phone,
-
-          // 🔥 IMPORTANT: Updated callback for Vercel
-          CallBackURL:
-            "https://expertech.vercel.app/api/mpesaCallback",
-
+          CallBackURL: "https://expertech.vercel.app/api/mpesaCallback",
           AccountReference: "ExpertechPrint",
           TransactionDesc: "Printing Payment",
         }),
@@ -85,12 +73,26 @@ export default async function handler(req, res) {
     );
 
     const result = await stkResponse.json();
+    console.log("STK Push result:", JSON.stringify(result));
 
-    return res.status(200).json(result);
+    if (result.ResponseCode === "0") {
+      const checkoutRequestID = result.CheckoutRequestID;
+      global.payments[checkoutRequestID] = { status: "pending" };
 
+      return res.status(200).json({
+        success: true,
+        checkoutRequestID,
+        CustomerMessage: result.CustomerMessage,
+      });
+    }
+
+    return res.status(200).json({
+      success: false,
+      error: result.errorMessage || "STK Push failed",
+      details: result,
+    });
   } catch (error) {
     console.error("STK PUSH ERROR:", error);
-
     return res.status(500).json({
       error: "STK Push failed",
       details: error.message,

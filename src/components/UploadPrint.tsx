@@ -58,6 +58,8 @@ const UploadPrint = () => {
   const [phone, setPhone] = useState("");
   const [paying, setPaying] = useState(false);
   const [paid, setPaid] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "pending" | "success" | "failed">("idle");
+  const [checkoutRequestID, setCheckoutRequestID] = useState<string | null>(null);
 
   // derived
   const totalPages = files.reduce((s, f) => s + f.pageCount, 0);
