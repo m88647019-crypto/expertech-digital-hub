@@ -58,6 +58,8 @@ const UploadPrint = () => {
   const [phone, setPhone] = useState("");
   const [paying, setPaying] = useState(false);
   const [paid, setPaid] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "pending" | "success" | "failed">("idle");
+  const [checkoutRequestID, setCheckoutRequestID] = useState<string | null>(null);
 
   // derived
   const totalPages = files.reduce((s, f) => s + f.pageCount, 0);
@@ -140,27 +142,70 @@ const UploadPrint = () => {
       return;
     }
     setPaying(true);
+    setPaymentStatus("pending");
     try {
-      const res = await fetch("/.netlify/functions/stkPush", {
+      const res = await fetch("/api/stkPush", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: formatPhone(phone), amount: totalPrice }),
       });
+
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
+
       const result = await res.json();
       console.log("STK Push response:", result);
 
-      if (result.ResponseCode === "0" || result.CustomerMessage) {
-        setPaid(true);
+      if (result.success && result.checkoutRequestID) {
+        setCheckoutRequestID(result.checkoutRequestID);
         toast({ title: "STK Push sent", description: "Check your phone to complete payment." });
+        startPolling(result.checkoutRequestID);
       } else {
-        toast({ title: "Payment request failed", description: "Please try again.", variant: "destructive" });
+        setPaymentStatus("failed");
+        toast({ title: "Payment request failed", description: result.error || "Please try again.", variant: "destructive" });
+        setPaying(false);
       }
     } catch (err) {
       console.error("STK Push error:", err);
-      toast({ title: "Payment request failed", description: "Please try again.", variant: "destructive" });
-    } finally {
+      setPaymentStatus("failed");
+      toast({ title: "Something went wrong", description: "Payment request failed. Please try again.", variant: "destructive" });
       setPaying(false);
     }
+  };
+
+  const startPolling = (id: string) => {
+    let elapsed = 0;
+    const interval = setInterval(async () => {
+      elapsed += 3000;
+      if (elapsed > 60000) {
+        clearInterval(interval);
+        setPaymentStatus("failed");
+        setPaying(false);
+        toast({ title: "Payment timeout", description: "No response received. Please try again.", variant: "destructive" });
+        return;
+      }
+      try {
+        const res = await fetch(`/api/checkStatus?id=${encodeURIComponent(id)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        console.log("Payment status:", data);
+        if (data.status === "success") {
+          clearInterval(interval);
+          setPaymentStatus("success");
+          setPaid(true);
+          setPaying(false);
+          toast({ title: "Payment successful ✅", description: `Receipt: ${data.receipt || "Confirmed"}` });
+        } else if (data.status === "failed") {
+          clearInterval(interval);
+          setPaymentStatus("failed");
+          setPaying(false);
+          toast({ title: "Payment failed ❌", description: "The transaction was not completed.", variant: "destructive" });
+        }
+      } catch {
+        // silently retry on network error
+      }
+    }, 3000);
   };
 
   // ── WhatsApp ──
@@ -181,6 +226,8 @@ const UploadPrint = () => {
     setPhone("");
     setPaying(false);
     setPaid(false);
+    setPaymentStatus("idle");
+    setCheckoutRequestID(null);
     setStep(0);
   };
 
@@ -366,6 +413,21 @@ const UploadPrint = () => {
                   />
                 </div>
 
+                {paymentStatus === "pending" && (
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-center">
+                    <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Waiting for payment confirmation…
+                    </p>
+                  </div>
+                )}
+
+                {paymentStatus === "failed" && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-center">
+                    <p className="text-sm text-destructive">Payment failed. Please try again.</p>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={triggerPayment}
@@ -375,8 +437,10 @@ const UploadPrint = () => {
                   {paying ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Sending STK Push…
+                      {paymentStatus === "pending" ? "Waiting for payment…" : "Sending STK Push…"}
                     </>
+                  ) : paymentStatus === "failed" ? (
+                    "Retry Payment"
                   ) : (
                     "Pay with M-Pesa"
                   )}
