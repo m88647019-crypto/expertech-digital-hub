@@ -176,9 +176,11 @@ const UploadPrint = () => {
 
   const startPolling = (id: string) => {
     let elapsed = 0;
+    const POLL_INTERVAL = 5000; // 5s — gives Safaricom time to process
+    const TIMEOUT = 90000; // 90s timeout
     const interval = setInterval(async () => {
-      elapsed += 3000;
-      if (elapsed > 60000) {
+      elapsed += POLL_INTERVAL;
+      if (elapsed > TIMEOUT) {
         clearInterval(interval);
         setPaymentStatus("failed");
         setPaying(false);
@@ -186,10 +188,10 @@ const UploadPrint = () => {
         return;
       }
       try {
-        const res = await fetch(`/api/checkStatus?id=${encodeURIComponent(id)}`);
+        const res = await fetch(`/api/checkStatus?id=${encodeURIComponent(id)}&t=${Date.now()}`);
         if (!res.ok) return;
         const data = await res.json();
-        console.log("Payment status:", data);
+        console.log("Payment status poll:", data);
         if (data.status === "success") {
           clearInterval(interval);
           setPaymentStatus("success");
@@ -200,12 +202,12 @@ const UploadPrint = () => {
           clearInterval(interval);
           setPaymentStatus("failed");
           setPaying(false);
-          toast({ title: "Payment failed ❌", description: "The transaction was not completed.", variant: "destructive" });
+          toast({ title: "Payment failed ❌", description: data.reason || "The transaction was not completed.", variant: "destructive" });
         }
       } catch {
         // silently retry on network error
       }
-    }, 3000);
+    }, POLL_INTERVAL);
   };
 
   // ── WhatsApp ──
