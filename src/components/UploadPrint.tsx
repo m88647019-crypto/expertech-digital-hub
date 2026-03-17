@@ -142,27 +142,70 @@ const UploadPrint = () => {
       return;
     }
     setPaying(true);
+    setPaymentStatus("pending");
     try {
-      const res = await fetch("/.netlify/functions/stkPush", {
+      const res = await fetch("/api/stkPush", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: formatPhone(phone), amount: totalPrice }),
       });
+
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
+
       const result = await res.json();
       console.log("STK Push response:", result);
 
-      if (result.ResponseCode === "0" || result.CustomerMessage) {
-        setPaid(true);
+      if (result.success && result.checkoutRequestID) {
+        setCheckoutRequestID(result.checkoutRequestID);
         toast({ title: "STK Push sent", description: "Check your phone to complete payment." });
+        startPolling(result.checkoutRequestID);
       } else {
-        toast({ title: "Payment request failed", description: "Please try again.", variant: "destructive" });
+        setPaymentStatus("failed");
+        toast({ title: "Payment request failed", description: result.error || "Please try again.", variant: "destructive" });
+        setPaying(false);
       }
     } catch (err) {
       console.error("STK Push error:", err);
-      toast({ title: "Payment request failed", description: "Please try again.", variant: "destructive" });
-    } finally {
+      setPaymentStatus("failed");
+      toast({ title: "Something went wrong", description: "Payment request failed. Please try again.", variant: "destructive" });
       setPaying(false);
     }
+  };
+
+  const startPolling = (id: string) => {
+    let elapsed = 0;
+    const interval = setInterval(async () => {
+      elapsed += 3000;
+      if (elapsed > 60000) {
+        clearInterval(interval);
+        setPaymentStatus("failed");
+        setPaying(false);
+        toast({ title: "Payment timeout", description: "No response received. Please try again.", variant: "destructive" });
+        return;
+      }
+      try {
+        const res = await fetch(`/api/checkStatus?id=${encodeURIComponent(id)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        console.log("Payment status:", data);
+        if (data.status === "success") {
+          clearInterval(interval);
+          setPaymentStatus("success");
+          setPaid(true);
+          setPaying(false);
+          toast({ title: "Payment successful ✅", description: `Receipt: ${data.receipt || "Confirmed"}` });
+        } else if (data.status === "failed") {
+          clearInterval(interval);
+          setPaymentStatus("failed");
+          setPaying(false);
+          toast({ title: "Payment failed ❌", description: "The transaction was not completed.", variant: "destructive" });
+        }
+      } catch {
+        // silently retry on network error
+      }
+    }, 3000);
   };
 
   // ── WhatsApp ──
