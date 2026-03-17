@@ -411,6 +411,21 @@ const UploadPrint = () => {
                   />
                 </div>
 
+                {paymentStatus === "pending" && (
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-center">
+                    <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Waiting for payment confirmation…
+                    </p>
+                  </div>
+                )}
+
+                {paymentStatus === "failed" && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-center">
+                    <p className="text-sm text-destructive">Payment failed. Please try again.</p>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={triggerPayment}
@@ -420,8 +435,10 @@ const UploadPrint = () => {
                   {paying ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Sending STK Push…
+                      {paymentStatus === "pending" ? "Waiting for payment…" : "Sending STK Push…"}
                     </>
+                  ) : paymentStatus === "failed" ? (
+                    "Retry Payment"
                   ) : (
                     "Pay with M-Pesa"
                   )}
