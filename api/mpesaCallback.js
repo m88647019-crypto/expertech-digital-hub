@@ -4,6 +4,9 @@ if (!global.payments) {
 }
 
 export default async function handler(req, res) {
+  // ✅ Prevent caching issues
+  res.setHeader("Cache-Control", "no-store");
+
   try {
     // ✅ Only allow POST (Safaricom callback)
     if (req.method !== "POST") {
@@ -12,7 +15,7 @@ export default async function handler(req, res) {
 
     const body = req.body;
 
-    console.log("📩 M-Pesa Callback:", JSON.stringify(body));
+    console.log("📩 M-Pesa Callback:", JSON.stringify(body, null, 2));
 
     const stkCallback = body?.Body?.stkCallback;
 
@@ -29,19 +32,25 @@ export default async function handler(req, res) {
     const checkoutRequestID =
       stkCallback.CheckoutRequestID ||
       stkCallback.CheckoutRequestId ||
-      "unknown_" + Date.now();
+      null;
+
+    if (!checkoutRequestID) {
+      console.warn("⚠️ Missing CheckoutRequestID");
+      return res.status(200).json({ message: "Missing ID handled" });
+    }
+
+    // ✅ Extract metadata safely
+    const metadata = stkCallback.CallbackMetadata?.Item || [];
+
+    const getValue = (name) =>
+      metadata.find((i) => i.Name === name)?.Value ?? null;
+
+    const amount = getValue("Amount");
+    const receipt = getValue("MpesaReceiptNumber");
+    const phone = getValue("PhoneNumber");
 
     // ✅ SUCCESS CASE
     if (resultCode === 0) {
-      const metadata = stkCallback.CallbackMetadata?.Item || [];
-
-      const getValue = (name) =>
-        metadata.find((i) => i.Name === name)?.Value ?? null;
-
-      const amount = getValue("Amount");
-      const receipt = getValue("MpesaReceiptNumber");
-      const phone = getValue("PhoneNumber");
-
       console.log("✅ Payment Successful:", {
         checkoutRequestID,
         amount,
@@ -54,7 +63,9 @@ export default async function handler(req, res) {
         amount,
         receipt,
         phone,
-        timestamp: Date.now(),
+        resultCode,
+        resultDesc,
+        updatedAt: Date.now(),
       };
 
     } else {
@@ -67,11 +78,14 @@ export default async function handler(req, res) {
       global.payments[checkoutRequestID] = {
         status: "failed",
         reason: resultDesc,
-        timestamp: Date.now(),
+        resultCode,
+        updatedAt: Date.now(),
       };
     }
 
-    // ✅ ALWAYS return 200 to prevent retries
+    console.log("🧠 Current Payments Store:", global.payments);
+
+    // ✅ ALWAYS return 200 (VERY IMPORTANT for Safaricom)
     return res.status(200).json({
       message: "Callback processed successfully",
     });
