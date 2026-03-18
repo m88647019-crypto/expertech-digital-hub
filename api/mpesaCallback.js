@@ -1,61 +1,64 @@
-import { getPaymentsStore } from "../lib/paymentStore.js";
-
-if (!global.payments) {
-  global.payments = {};
-}
+import { supabase } from "../lib/supabase";
 
 export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ error: "Method not allowed" });
-    }
+    const body = req.body;
 
-    const stkCallback = req.body?.Body?.stkCallback;
+    const stkCallback =
+      body?.Body?.stkCallback || body?.stkCallback || body;
+
     if (!stkCallback) {
-      console.warn("⚠️ Invalid callback structure");
-      return res.status(200).json({ message: "Invalid structure handled" });
+      console.error("❌ Invalid callback format:", body);
+      return res.status(400).json({ error: "Invalid callback" });
     }
 
-    const checkoutRequestID = stkCallback.CheckoutRequestID ?? stkCallback.CheckoutRequestId ?? null;
-    if (!checkoutRequestID) {
-      console.warn("⚠️ Missing CheckoutRequestID in callback");
-      return res.status(200).json({ message: "Missing CheckoutRequestID handled" });
-    }
+    const checkoutRequestID = stkCallback.CheckoutRequestID;
+    const resultCode = stkCallback.ResultCode;
+    const resultDesc = stkCallback.ResultDesc;
 
-    const metadata = stkCallback.CallbackMetadata?.Item || [];
-    const getValue = (name) => metadata.find((item) => item.Name === name)?.Value ?? null;
-
-    const amount = getValue("Amount");
-    const receipt = getValue("MpesaReceiptNumber");
-    const phone = getValue("PhoneNumber");
-
-    const payments = getPaymentsStore();
-    const resultCode = Number(stkCallback.ResultCode);
+    let status = "failed";
+    let receipt = null;
+    let phone = null;
+    let amount = null;
 
     if (resultCode === 0) {
-      payments[checkoutRequestID] = {
-        status: "success",
-        amount,
-        receipt,
-        phone,
-      };
-    } else {
-      payments[checkoutRequestID] = {
-        status: "failed",
-        reason: stkCallback.ResultDesc || "Payment failed",
-      };
+      status = "success";
+
+      const metadata = stkCallback.CallbackMetadata?.Item || [];
+
+      const getValue = (name) =>
+        metadata.find((i) => i.Name === name)?.Value;
+
+      receipt = getValue("MpesaReceiptNumber") || null;
+      phone = getValue("PhoneNumber") || null;
+      amount = getValue("Amount") || null;
     }
 
-    console.log("🧾 Stored checkoutRequestID:", checkoutRequestID);
-    console.log("🧠 Stored payment state:", payments[checkoutRequestID]);
+    // ✅ UPSERT into Supabase
+    const { error } = await supabase.from("payments").upsert({
+      checkout_request_id: checkoutRequestID,
+      status,
+      receipt,
+      phone,
+      amount,
+      raw_response: stkCallback,
+      updated_at: new Date().toISOString(),
+    });
 
-    return res.status(200).json({ message: "Callback processed successfully" });
-  } catch (error) {
-    console.error("🚨 CALLBACK ERROR:", error);
-    return res.status(200).json({ message: "Error handled safely" });
+    if (error) {
+      console.error("❌ Supabase insert error:", error);
+      return res.status(500).json({ error: "DB error" });
+    }
+
+    console.log("✅ Stored payment:", {
+      checkoutRequestID,
+      status,
+      receipt,
+    });
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("🚨 Callback error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 }

@@ -1,15 +1,13 @@
-import { getPaymentsStore } from "../lib/paymentStore.js";
-
-if (!global.payments) {
-  global.payments = {};
-}
+import { supabase } from "../lib/supabase.js";
 
 export default async function handler(req, res) {
+  // 🔥 Prevent caching
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
 
   try {
+    // ✅ Allow only GET
     if (req.method !== "GET") {
       return res.status(405).json({ error: "Method not allowed" });
     }
@@ -21,35 +19,48 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing checkoutRequestID" });
     }
 
-    const payments = getPaymentsStore();
-    const payment = payments[id];
+    console.log("🔎 Checking status for:", id);
 
-    console.log("🔎 Queried ID:", id);
+    // ✅ Fetch from Supabase instead of memory
+    const { data, error } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("checkout_request_id", id)
+      .maybeSingle();
 
-    if (!payment) {
+    if (error) {
+      console.error("❌ Supabase fetch error:", error);
+      return res.status(500).json({ status: "error" });
+    }
+
+    // ✅ Not yet written by callback → still pending
+    if (!data) {
       return res.status(200).json({ status: "pending" });
     }
 
-    console.log("🧾 Stored checkoutRequestID:", id);
-    console.log("🧠 Stored payment lookup:", payment);
+    console.log("🧠 DB payment:", data);
 
-    if (payment.status === "success") {
+    // ✅ Success
+    if (data.status === "success") {
       return res.status(200).json({
         status: "success",
-        amount: payment.amount ?? null,
-        receipt: payment.receipt ?? null,
-        phone: payment.phone ?? null,
+        amount: data.amount ?? null,
+        receipt: data.receipt ?? null,
+        phone: data.phone ?? null,
       });
     }
 
-    if (payment.status === "failed") {
+    // ❌ Failed
+    if (data.status === "failed") {
       return res.status(200).json({
         status: "failed",
-        reason: payment.reason || "Payment failed",
+        reason: data.raw_response?.ResultDesc || "Payment failed",
       });
     }
 
+    // ⏳ Still pending
     return res.status(200).json({ status: "pending" });
+
   } catch (error) {
     console.error("🚨 CHECK STATUS ERROR:", error);
     return res.status(500).json({ error: "Status check failed" });
