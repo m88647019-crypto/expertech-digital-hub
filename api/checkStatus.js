@@ -1,13 +1,16 @@
 import { supabase } from "../lib/supabase.js";
 
 export default async function handler(req, res) {
-  // 🔥 Prevent caching
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  // 🔥 Strong anti-cache headers
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate"
+  );
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
 
   try {
-    // ✅ Allow only GET
+    // ✅ Only GET
     if (req.method !== "GET") {
       return res.status(405).json({ error: "Method not allowed" });
     }
@@ -21,10 +24,14 @@ export default async function handler(req, res) {
 
     console.log("🔎 Checking status for:", id);
 
-    // ✅ Fetch from Supabase instead of memory
+    // =========================
+    // ✅ FETCH PAYMENT
+    // =========================
     const { data, error } = await supabase
       .from("payments")
-      .select("*")
+      .select(
+        "status, amount, receipt, phone, result_desc, updated_at"
+      )
       .eq("checkout_request_id", id)
       .maybeSingle();
 
@@ -33,14 +40,18 @@ export default async function handler(req, res) {
       return res.status(500).json({ status: "error" });
     }
 
-    // ✅ Not yet written by callback → still pending
+    // =========================
+    // ⏳ NOT FOUND → STILL PROCESSING
+    // =========================
     if (!data) {
-      return res.status(200).json({ status: "pending" });
+      return res.status(200).json({
+        status: "pending",
+      });
     }
 
-    console.log("🧠 DB payment:", data);
-
-    // ✅ Success
+    // =========================
+    // ✅ SUCCESS
+    // =========================
     if (data.status === "success") {
       return res.status(200).json({
         status: "success",
@@ -50,19 +61,43 @@ export default async function handler(req, res) {
       });
     }
 
-    // ❌ Failed
+    // =========================
+    // ❌ FAILED
+    // =========================
     if (data.status === "failed") {
       return res.status(200).json({
         status: "failed",
-        reason: data.raw_response?.ResultDesc || "Payment failed",
+        reason: data.result_desc || "Payment failed",
       });
     }
 
-    // ⏳ Still pending
-    return res.status(200).json({ status: "pending" });
+    // =========================
+    // 🧠 OPTIONAL: TIMEOUT DETECTION
+    // =========================
+    const updatedAt = data.updated_at
+      ? new Date(data.updated_at).getTime()
+      : null;
 
-  } catch (error) {
-    console.error("🚨 CHECK STATUS ERROR:", error);
-    return res.status(500).json({ error: "Status check failed" });
+    const now = Date.now();
+
+    // If stuck > 2 minutes → treat as timeout
+    if (updatedAt && now - updatedAt > 120000) {
+      return res.status(200).json({
+        status: "timeout",
+      });
+    }
+
+    // =========================
+    // ⏳ STILL PROCESSING
+    // =========================
+    return res.status(200).json({
+      status: data.status || "pending",
+    });
+
+  } catch (err) {
+    console.error("🚨 CHECK STATUS ERROR:", err);
+    return res.status(500).json({
+      status: "error",
+    });
   }
 }

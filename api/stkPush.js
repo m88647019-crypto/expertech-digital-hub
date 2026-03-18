@@ -1,23 +1,22 @@
-// ✅ Ensure shared memory exists (for sandbox testing)
-if (!global.payments) {
-  global.payments = {};
-}
+import { supabase } from "../lib/supabase.js";
 
 export default async function handler(req, res) {
   try {
-    // ✅ Only allow POST
     if (req.method !== "POST") {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
     let { phone, amount } = req.body;
 
-    // ✅ Validate input
+    // =========================
+    // ✅ VALIDATION
+    // =========================
     if (!phone || !amount) {
-      return res.status(400).json({ error: "Phone and amount are required" });
+      return res.status(400).json({
+        error: "Phone and amount are required",
+      });
     }
 
-    // ✅ Normalize phone number (VERY IMPORTANT for M-Pesa)
     phone = phone.replace(/\s+/g, "");
 
     if (phone.startsWith("0")) {
@@ -26,18 +25,20 @@ export default async function handler(req, res) {
       phone = phone.replace("+", "");
     }
 
-    // Final validation
     if (!/^254\d{9}$/.test(phone)) {
-      return res.status(400).json({ error: "Invalid phone format. Use 07XXXXXXXX or 254XXXXXXXXX" });
+      return res.status(400).json({
+        error: "Invalid phone format (use 07XXXXXXXX)",
+      });
     }
 
-    // ✅ Ensure amount is valid
     amount = Number(amount);
     if (isNaN(amount) || amount < 1) {
       return res.status(400).json({ error: "Invalid amount" });
     }
 
-    // ✅ Load env variables
+    // =========================
+    // ✅ ENV VARIABLES
+    // =========================
     const consumerKey = process.env.MPESA_CONSUMER_KEY;
     const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
     const shortcode = process.env.MPESA_SHORTCODE;
@@ -45,18 +46,25 @@ export default async function handler(req, res) {
 
     if (!consumerKey || !consumerSecret || !shortcode || !passkey) {
       console.error("❌ Missing env variables");
-      return res.status(500).json({ error: "Server configuration error" });
+      return res.status(500).json({
+        error: "Server configuration error",
+      });
     }
 
-    // ✅ Generate auth
-    const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64");
+    // =========================
+    // 🔐 GET ACCESS TOKEN
+    // =========================
+    const auth = Buffer.from(
+      `${consumerKey}:${consumerSecret}`
+    ).toString("base64");
 
-    // ✅ Get access token
     const tokenResponse = await fetch(
       "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
       {
         method: "GET",
-        headers: { Authorization: `Basic ${auth}` },
+        headers: {
+          Authorization: `Basic ${auth}`,
+        },
       }
     );
 
@@ -64,21 +72,28 @@ export default async function handler(req, res) {
 
     if (!tokenData.access_token) {
       console.error("❌ Token error:", tokenData);
-      return res.status(500).json({ error: "Failed to get access token" });
+      return res.status(500).json({
+        error: "Failed to get access token",
+      });
     }
 
     const accessToken = tokenData.access_token;
 
-    // ✅ Generate timestamp
+    // =========================
+    // 🧮 GENERATE PASSWORD
+    // =========================
     const timestamp = new Date()
       .toISOString()
       .replace(/[-:.TZ]/g, "")
       .slice(0, 14);
 
-    // ✅ Generate password
-    const password = Buffer.from(shortcode + passkey + timestamp).toString("base64");
+    const password = Buffer.from(
+      shortcode + passkey + timestamp
+    ).toString("base64");
 
-    // ✅ Send STK Push
+    // =========================
+    // 📲 STK PUSH REQUEST
+    // =========================
     const stkResponse = await fetch(
       "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
       {
@@ -96,7 +111,8 @@ export default async function handler(req, res) {
           PartyA: phone,
           PartyB: shortcode,
           PhoneNumber: phone,
-          CallBackURL: "https://expertech.vercel.app/api/mpesaCallback",
+          CallBackURL:
+            "https://expertech.vercel.app/api/mpesaCallback",
           AccountReference: "ExpertechPrint",
           TransactionDesc: "Printing Payment",
         }),
@@ -105,9 +121,11 @@ export default async function handler(req, res) {
 
     const result = await stkResponse.json();
 
-    console.log("📲 STK Push result:", JSON.stringify(result));
+    console.log("📲 STK Push result:", result);
 
+    // =========================
     // ✅ SUCCESS RESPONSE
+    // =========================
     if (result.ResponseCode === "0") {
       const checkoutRequestID =
         result.CheckoutRequestID || result.CheckoutRequestId;
@@ -119,22 +137,42 @@ export default async function handler(req, res) {
         });
       }
 
-      // Store as pending
-      global.payments[checkoutRequestID] = {
-        status: "pending",
-        phone,
-        amount,
-        timestamp: Date.now(),
-      };
+      // =========================
+      // 🧠 INSERT INITIAL RECORD
+      // =========================
+      const { error: dbError } = await supabase
+        .from("payments")
+        .upsert(
+          {
+            checkout_request_id: checkoutRequestID,
+            status: "processing", // 🔥 IMPORTANT
+            phone,
+            amount,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "checkout_request_id",
+          }
+        );
+
+      if (dbError) {
+        console.error("❌ DB insert error:", dbError);
+      }
 
       return res.status(200).json({
         success: true,
         checkoutRequestID,
-        message: result.CustomerMessage || "STK Push sent",
+        message:
+          result.CustomerMessage ||
+          "STK Push sent successfully",
       });
     }
 
+    // =========================
     // ❌ FAILURE RESPONSE
+    // =========================
+    console.error("❌ STK failed:", result);
+
     return res.status(200).json({
       success: false,
       error: result.errorMessage || "STK Push failed",
