@@ -384,7 +384,7 @@ const UploadPrint = () => {
           toast({ title: "Payment successful ✅", description: `Receipt: ${data.receipt || "Confirmed"}` });
 
           // Save to Supabase (non-blocking)
-          saveOrder(id, data.receipt || null);
+          uploadAndSaveOrder(id, data.receipt || null);
           return;
         }
 
