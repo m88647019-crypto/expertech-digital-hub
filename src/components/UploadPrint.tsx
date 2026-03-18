@@ -168,23 +168,52 @@ const UploadPrint = () => {
     setCountdown(0);
   }, []);
 
-  // ── Save order to Supabase (non-blocking) ──
-  const saveOrder = useCallback(async (crid: string, rcpt: string | null) => {
+  // ── Upload files then save order (non-blocking, idempotent) ──
+  const uploadAndSaveOrder = useCallback(async (crid: string, rcpt: string | null) => {
+    // Idempotency guard
+    if (orderSavedRef.current) {
+      addLog("[SAVE]", "info", "Order already saved, skipping duplicate");
+      return;
+    }
+    orderSavedRef.current = true;
+
+    // Step 1: Upload files
     try {
+      setUploadStatus("uploading");
+      addLog("[SAVE]", "info", "Uploading files...");
+
+      const uploadedPaths: string[] = [];
+      for (const f of files) {
+        const formData = new FormData();
+        formData.append("file", f.file);
+        formData.append("checkoutRequestID", crid);
+
+        const uploadRes = await fetch("/api/uploadFile", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const errText = await uploadRes.text().catch(() => "");
+          addLog("[SAVE]", "warning", `File upload failed for ${f.file.name}: ${uploadRes.status}`, errText);
+          // Continue with other files
+        } else {
+          const uploadData = await uploadRes.json().catch(() => ({}));
+          uploadedPaths.push(uploadData.filePath || f.file.name);
+          addLog("[SAVE]", "success", `Uploaded: ${f.file.name}`);
+        }
+      }
+
+      setUploadStatus("done");
+      addLog("[SAVE]", "success", `All files uploaded (${uploadedPaths.length}/${files.length})`);
+
+      // Step 2: Save order to DB
       addLog("[SAVE]", "info", "Saving order to database...");
       const res = await fetch("/api/saveOrder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          files: files.map((f) => ({ name: f.file.name, pages: f.pageCount })),
-          total_pages: totalPages,
-          copies,
-          print_type: printType,
-          paper_size: paperSize,
-          total_price: totalPrice,
-          phone: formatPhone(phone),
           checkoutRequestID: crid,
-          receipt: rcpt,
         }),
       });
 
@@ -195,9 +224,10 @@ const UploadPrint = () => {
 
       addLog("[SAVE]", "success", "Order saved successfully");
     } catch (err: any) {
-      addLog("[SAVE]", "error", `Save failed: ${err.message}`);
+      addLog("[SAVE]", "error", `Upload/save failed: ${err.message}`);
+      setUploadStatus("failed");
     }
-  }, [files, totalPages, copies, printType, paperSize, totalPrice, phone, addLog]);
+  }, [files, addLog]);
 
   // ── Payment via real STK Push ──
   const formatPhone = (raw: string): string => {
