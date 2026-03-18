@@ -700,7 +700,21 @@ const UploadPrint = () => {
                 {receipt && (
                   <p className="text-xs text-muted-foreground font-mono">Receipt: {receipt}</p>
                 )}
-                <p className="text-sm text-muted-foreground">Your print order has been received.</p>
+                {uploadStatus === "uploading" && (
+                  <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading files…
+                  </p>
+                )}
+                {uploadStatus === "done" && (
+                  <p className="text-sm text-[#4CAF50]">Payment successful and file uploaded ✅</p>
+                )}
+                {uploadStatus === "failed" && (
+                  <p className="text-sm text-destructive">File upload failed — please contact support.</p>
+                )}
+                {uploadStatus === "idle" && (
+                  <p className="text-sm text-muted-foreground">Your print order has been received.</p>
+                )}
               </div>
             )}
           </div>
