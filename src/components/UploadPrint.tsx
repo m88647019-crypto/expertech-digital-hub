@@ -444,6 +444,8 @@ const UploadPrint = () => {
     setReceipt(null);
     setFailureMessage(null);
     setCountdown(0);
+    setUploadStatus("idle");
+    orderSavedRef.current = false;
     clearLogs();
     setStep(0);
   };
