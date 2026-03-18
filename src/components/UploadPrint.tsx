@@ -67,6 +67,8 @@ const UploadPrint = () => {
   const [receipt, setReceipt] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "done" | "failed">("idle");
+  const orderSavedRef = useRef(false);
 
   // refs to prevent leaks
   const pollIntervalRef = useRef<number | null>(null);
