@@ -67,6 +67,8 @@ const UploadPrint = () => {
   const [receipt, setReceipt] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "done" | "failed">("idle");
+  const orderSavedRef = useRef(false);
 
   // refs to prevent leaks
   const pollIntervalRef = useRef<number | null>(null);
@@ -166,23 +168,52 @@ const UploadPrint = () => {
     setCountdown(0);
   }, []);
 
-  // ── Save order to Supabase (non-blocking) ──
-  const saveOrder = useCallback(async (crid: string, rcpt: string | null) => {
+  // ── Upload files then save order (non-blocking, idempotent) ──
+  const uploadAndSaveOrder = useCallback(async (crid: string, rcpt: string | null) => {
+    // Idempotency guard
+    if (orderSavedRef.current) {
+      addLog("[SAVE]", "info", "Order already saved, skipping duplicate");
+      return;
+    }
+    orderSavedRef.current = true;
+
+    // Step 1: Upload files
     try {
+      setUploadStatus("uploading");
+      addLog("[SAVE]", "info", "Uploading files...");
+
+      const uploadedPaths: string[] = [];
+      for (const f of files) {
+        const formData = new FormData();
+        formData.append("file", f.file);
+        formData.append("checkoutRequestID", crid);
+
+        const uploadRes = await fetch("/api/uploadFile", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const errText = await uploadRes.text().catch(() => "");
+          addLog("[SAVE]", "warning", `File upload failed for ${f.file.name}: ${uploadRes.status}`, errText);
+          // Continue with other files
+        } else {
+          const uploadData = await uploadRes.json().catch(() => ({}));
+          uploadedPaths.push(uploadData.filePath || f.file.name);
+          addLog("[SAVE]", "success", `Uploaded: ${f.file.name}`);
+        }
+      }
+
+      setUploadStatus("done");
+      addLog("[SAVE]", "success", `All files uploaded (${uploadedPaths.length}/${files.length})`);
+
+      // Step 2: Save order to DB
       addLog("[SAVE]", "info", "Saving order to database...");
       const res = await fetch("/api/saveOrder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          files: files.map((f) => ({ name: f.file.name, pages: f.pageCount })),
-          total_pages: totalPages,
-          copies,
-          print_type: printType,
-          paper_size: paperSize,
-          total_price: totalPrice,
-          phone: formatPhone(phone),
           checkoutRequestID: crid,
-          receipt: rcpt,
         }),
       });
 
@@ -193,9 +224,10 @@ const UploadPrint = () => {
 
       addLog("[SAVE]", "success", "Order saved successfully");
     } catch (err: any) {
-      addLog("[SAVE]", "error", `Save failed: ${err.message}`);
+      addLog("[SAVE]", "error", `Upload/save failed: ${err.message}`);
+      setUploadStatus("failed");
     }
-  }, [files, totalPages, copies, printType, paperSize, totalPrice, phone, addLog]);
+  }, [files, addLog]);
 
   // ── Payment via real STK Push ──
   const formatPhone = (raw: string): string => {
@@ -352,7 +384,7 @@ const UploadPrint = () => {
           toast({ title: "Payment successful ✅", description: `Receipt: ${data.receipt || "Confirmed"}` });
 
           // Save to Supabase (non-blocking)
-          saveOrder(id, data.receipt || null);
+          uploadAndSaveOrder(id, data.receipt || null);
           return;
         }
 
@@ -412,6 +444,8 @@ const UploadPrint = () => {
     setReceipt(null);
     setFailureMessage(null);
     setCountdown(0);
+    setUploadStatus("idle");
+    orderSavedRef.current = false;
     clearLogs();
     setStep(0);
   };
@@ -666,7 +700,21 @@ const UploadPrint = () => {
                 {receipt && (
                   <p className="text-xs text-muted-foreground font-mono">Receipt: {receipt}</p>
                 )}
-                <p className="text-sm text-muted-foreground">Your print order has been received.</p>
+                {uploadStatus === "uploading" && (
+                  <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading files…
+                  </p>
+                )}
+                {uploadStatus === "done" && (
+                  <p className="text-sm text-[#4CAF50]">Payment successful and file uploaded ✅</p>
+                )}
+                {uploadStatus === "failed" && (
+                  <p className="text-sm text-destructive">File upload failed — please contact support.</p>
+                )}
+                {uploadStatus === "idle" && (
+                  <p className="text-sm text-muted-foreground">Your print order has been received.</p>
+                )}
               </div>
             )}
           </div>
