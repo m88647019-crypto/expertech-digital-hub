@@ -1,13 +1,25 @@
-import { supabase } from "../lib/supabase";
+import { supabase } from "../lib/supabase.js"; // ✅ FIXED (.js required)
 
 export default async function handler(req, res) {
+  // 🔥 Prevent caching
+  res.setHeader("Cache-Control", "no-store");
+
   try {
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
     const body = req.body;
 
-    const stkCallback =
-      body?.Body?.stkCallback || body?.stkCallback || body;
+    console.log("📥 Raw callback:", JSON.stringify(body));
 
-    if (!stkCallback) {
+    // ✅ Handle all possible Daraja formats
+    const stkCallback =
+      body?.Body?.stkCallback ||
+      body?.stkCallback ||
+      body;
+
+    if (!stkCallback || !stkCallback.CheckoutRequestID) {
       console.error("❌ Invalid callback format:", body);
       return res.status(400).json({ error: "Invalid callback" });
     }
@@ -21,6 +33,7 @@ export default async function handler(req, res) {
     let phone = null;
     let amount = null;
 
+    // ✅ SUCCESS CASE
     if (resultCode === 0) {
       status = "success";
 
@@ -34,20 +47,33 @@ export default async function handler(req, res) {
       amount = getValue("Amount") || null;
     }
 
-    // ✅ UPSERT into Supabase
-    const { error } = await supabase.from("payments").upsert({
-      checkout_request_id: checkoutRequestID,
-      status,
-      receipt,
-      phone,
-      amount,
-      raw_response: stkCallback,
-      updated_at: new Date().toISOString(),
-    });
+    // ❌ FAILURE CASE
+    if (resultCode !== 0) {
+      status = "failed";
+      console.warn("❌ Payment failed:", resultDesc);
+    }
+
+    // ✅ UPSERT INTO SUPABASE (with conflict handling)
+    const { error } = await supabase
+      .from("payments")
+      .upsert(
+        {
+          checkout_request_id: checkoutRequestID,
+          status,
+          receipt,
+          phone,
+          amount,
+          raw_response: stkCallback,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "checkout_request_id", // 🔥 IMPORTANT
+        }
+      );
 
     if (error) {
       console.error("❌ Supabase insert error:", error);
-      return res.status(500).json({ error: "DB error" });
+      return res.status(500).json({ error: "DB error", details: error.message });
     }
 
     console.log("✅ Stored payment:", {
@@ -56,9 +82,13 @@ export default async function handler(req, res) {
       receipt,
     });
 
-    return res.json({ success: true });
+    return res.status(200).json({ success: true });
+
   } catch (err) {
     console.error("🚨 Callback error:", err);
-    return res.status(500).json({ error: "Server error" });
+    return res.status(500).json({
+      error: "Server error",
+      details: err.message,
+    });
   }
 }
