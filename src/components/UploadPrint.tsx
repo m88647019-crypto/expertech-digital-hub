@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload, FileText, X, Image as ImageIcon, Check, ChevronRight, ChevronLeft,
@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { usePaymentDebug, classifyFailure } from "@/hooks/usePaymentDebug";
+import PaymentDebugPanel from "@/components/PaymentDebugPanel";
 
 // ── Types ──────────────────────────────────────────────────────────────
 interface UploadedFile {
@@ -21,6 +23,8 @@ type PaperSize = "A4" | "A3" | "A5" | "Letter";
 
 const PRICE: Record<PrintType, number> = { bw: 10, color: 20 };
 const STEPS = ["Upload Files", "Print Settings", "Price Summary", "Payment", "Confirmation"];
+const POLL_INTERVAL = 3000;
+const POLL_TIMEOUT = 60000;
 
 // ── Helpers ────────────────────────────────────────────────────────────
 function formatSize(bytes: number) {
@@ -60,11 +64,37 @@ const UploadPrint = () => {
   const [paid, setPaid] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "pending" | "success" | "failed">("idle");
   const [checkoutRequestID, setCheckoutRequestID] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(0);
+  const [failureMessage, setFailureMessage] = useState<string | null>(null);
+
+  // refs to prevent leaks
+  const pollIntervalRef = useRef<number | null>(null);
+  const countdownIntervalRef = useRef<number | null>(null);
+  const pollActiveRef = useRef(false);
+
+  // debug system
+  const { logs, debugState, addLog, updateState, clearLogs, persistLogs } = usePaymentDebug();
 
   // derived
   const totalPages = files.reduce((s, f) => s + f.pageCount, 0);
   const pricePerPage = PRICE[printType];
   const totalPrice = totalPages * copies * pricePerPage;
+
+  // Sync debug state
+  useEffect(() => {
+    updateState({ paymentStatus, paying, paid, checkoutRequestID, receipt });
+  }, [paymentStatus, paying, paid, checkoutRequestID, receipt, updateState]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) window.clearInterval(pollIntervalRef.current);
+      if (countdownIntervalRef.current) window.clearInterval(countdownIntervalRef.current);
+      files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── File handling ──
   const addFiles = useCallback(async (incoming: FileList | null) => {
@@ -103,12 +133,6 @@ const UploadPrint = () => {
     );
   };
 
-  // cleanup previews
-  useEffect(() => {
-    return () => files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // ── Navigation guards ──
   const canNext = () => {
     if (step === 0) return files.length > 0;
@@ -128,6 +152,51 @@ const UploadPrint = () => {
     if (step > 0) setStep(step - 1);
   };
 
+  // ── Stop polling helper ──
+  const stopPolling = useCallback(() => {
+    pollActiveRef.current = false;
+    if (pollIntervalRef.current) {
+      window.clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      window.clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setCountdown(0);
+  }, []);
+
+  // ── Save order to Supabase (non-blocking) ──
+  const saveOrder = useCallback(async (crid: string, rcpt: string | null) => {
+    try {
+      addLog("[SAVE]", "info", "Saving order to database...");
+      const res = await fetch("/api/saveOrder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: files.map((f) => ({ name: f.file.name, pages: f.pageCount })),
+          total_pages: totalPages,
+          copies,
+          print_type: printType,
+          paper_size: paperSize,
+          total_price: totalPrice,
+          phone: formatPhone(phone),
+          checkoutRequestID: crid,
+          receipt: rcpt,
+        }),
+      });
+
+      if (!res.ok) {
+        addLog("[SAVE]", "warning", `Save returned ${res.status}`, await res.text().catch(() => ""));
+        return;
+      }
+
+      addLog("[SAVE]", "success", "Order saved successfully");
+    } catch (err: any) {
+      addLog("[SAVE]", "error", `Save failed: ${err.message}`);
+    }
+  }, [files, totalPages, copies, printType, paperSize, totalPrice, phone, addLog]);
+
   // ── Payment via real STK Push ──
   const formatPhone = (raw: string): string => {
     const digits = raw.replace(/\s+/g, "").replace(/^\+/, "");
@@ -137,22 +206,35 @@ const UploadPrint = () => {
   };
 
   const triggerPayment = async () => {
+    // Prevent duplicate
+    if (paying || pollActiveRef.current) {
+      addLog("[STK]", "warning", "Payment already in progress, ignoring duplicate click");
+      return;
+    }
+
     if (!phone.match(/^(\+?254|0)\d{9}$/)) {
       toast({ title: "Enter a valid Kenyan phone number", variant: "destructive" });
       return;
     }
 
+    const formatted = formatPhone(phone);
     setPaying(true);
     setPaymentStatus("pending");
+    setFailureMessage(null);
+    setReceipt(null);
+
+    addLog("[STK]", "info", `Initiating STK Push`, { phone: formatted, amount: totalPrice, timestamp: new Date().toISOString() });
 
     try {
       const res = await fetch("/api/stkPush", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: formatPhone(phone), amount: totalPrice }),
+        body: JSON.stringify({ phone: formatted, amount: totalPrice }),
       });
 
       if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        addLog("[STK]", "error", `Server error ${res.status}`, errText);
         throw new Error(`Server error: ${res.status}`);
       }
 
@@ -161,54 +243,90 @@ const UploadPrint = () => {
       try {
         result = JSON.parse(text);
       } catch {
+        addLog("[STK]", "error", "Invalid JSON response from /api/stkPush", text);
         throw new Error("Invalid JSON from /api/stkPush");
       }
 
-      console.log("STK Push response:", result);
+      addLog("[STK]", "info", `STK Push response received`, { success: result.success, checkoutRequestID: result.checkoutRequestID });
 
       if (result.success && result.checkoutRequestID) {
-        console.log("📤 Sent CheckoutRequestID:", result.checkoutRequestID);
         setCheckoutRequestID(result.checkoutRequestID);
         toast({ title: "STK Push sent", description: "Check your phone to complete payment" });
+        addLog("[STK]", "success", `STK Push sent. CheckoutRequestID: ${result.checkoutRequestID}`);
         startPolling(result.checkoutRequestID);
         return;
       }
 
+      // STK push didn't succeed
+      const reason = classifyFailure(result.error || result.errorMessage, result);
+      addLog("[STK]", "error", `STK Push rejected: ${reason}`, result);
       setPaymentStatus("failed");
+      setFailureMessage(reason);
       setPaying(false);
-      toast({ title: "Payment request failed", description: result.error || "Something went wrong, try again", variant: "destructive" });
-    } catch (err) {
-      console.error("STK Push error:", err);
+      toast({ title: "Payment request failed", description: reason, variant: "destructive" });
+    } catch (err: any) {
+      const reason = classifyFailure(err.message);
+      addLog("[ERROR]", "error", `STK Push exception: ${err.message}`);
       setPaymentStatus("failed");
+      setFailureMessage(reason);
       setPaying(false);
-      toast({ title: "Something went wrong, try again", description: "Payment request failed", variant: "destructive" });
+      toast({ title: "Something went wrong", description: reason, variant: "destructive" });
     }
   };
 
   const startPolling = (id: string) => {
+    // Prevent multiple polling sessions
+    if (pollActiveRef.current) {
+      addLog("[POLL]", "warning", "Polling already active, skipping duplicate");
+      return;
+    }
+
+    pollActiveRef.current = true;
     let elapsed = 0;
-    const POLL_INTERVAL = 3000;
-    const TIMEOUT = 60000;
+    let pollCount = 0;
+    const totalSeconds = Math.floor(POLL_TIMEOUT / 1000);
+    setCountdown(totalSeconds);
 
-    const interval = window.setInterval(async () => {
+    addLog("[POLL]", "info", `Starting polling for ${id}, timeout ${totalSeconds}s`);
+
+    // Countdown timer
+    countdownIntervalRef.current = window.setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) return 0;
+        return prev - 1;
+      });
+    }, 1000);
+
+    pollIntervalRef.current = window.setInterval(async () => {
+      if (!pollActiveRef.current) return;
+
       elapsed += POLL_INTERVAL;
+      pollCount++;
+      updateState({ pollCount, elapsedSeconds: Math.floor(elapsed / 1000) });
 
-      if (elapsed >= TIMEOUT) {
-        window.clearInterval(interval);
+      // Timeout
+      if (elapsed >= POLL_TIMEOUT) {
+        addLog("[TIMEOUT]", "warning", `Polling timed out after ${Math.floor(elapsed / 1000)}s (${pollCount} polls)`);
+        stopPolling();
         setPaying(false);
         setPaymentStatus("idle");
+        setFailureMessage(null);
+        persistLogs();
         toast({ title: "Payment still pending", description: "No response yet. Please check your phone or try again." });
         return;
       }
 
       try {
+        addLog("[POLL]", "info", `Poll #${pollCount} for ${id}`);
+
         const res = await fetch(`/api/checkStatus?id=${encodeURIComponent(id)}&t=${Date.now()}`, {
           cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
         });
 
         if (!res.ok) {
-          console.warn("Status poll failed:", res.status);
-          return;
+          addLog("[POLL]", "warning", `Poll returned ${res.status}`);
+          return; // continue polling
         }
 
         const text = await res.text();
@@ -217,31 +335,57 @@ const UploadPrint = () => {
         try {
           data = JSON.parse(text);
         } catch {
-          console.error("Invalid JSON from /api/checkStatus");
-          return;
+          addLog("[POLL]", "error", "Invalid JSON from /api/checkStatus", text);
+          return; // continue polling
         }
 
-        console.log("🔄 Queried ID:", id, data);
+        addLog("[POLL]", "info", `Status: ${data.status}`, data);
 
         if (data.status === "success") {
-          window.clearInterval(interval);
+          addLog("[SUCCESS]", "success", `Payment confirmed! Receipt: ${data.receipt || "N/A"}, Duration: ${Math.floor(elapsed / 1000)}s`);
+          stopPolling();
           setPaymentStatus("success");
           setPaid(true);
           setPaying(false);
+          setReceipt(data.receipt || null);
+          persistLogs();
           toast({ title: "Payment successful ✅", description: `Receipt: ${data.receipt || "Confirmed"}` });
+
+          // Save to Supabase (non-blocking)
+          saveOrder(id, data.receipt || null);
           return;
         }
 
         if (data.status === "failed") {
-          window.clearInterval(interval);
+          const reason = classifyFailure(data.reason, data);
+          addLog("[FAILED]", "error", `Payment failed: ${reason}`, data);
+          stopPolling();
           setPaymentStatus("failed");
+          setFailureMessage(reason);
           setPaying(false);
-          toast({ title: "Payment failed ❌", description: data.reason || "The transaction was not completed.", variant: "destructive" });
+          persistLogs();
+          toast({ title: "Payment failed ❌", description: reason, variant: "destructive" });
+          return;
         }
-      } catch (error) {
-        console.warn("Polling error, retrying:", error);
+
+        // "pending" — continue polling silently
+      } catch (error: any) {
+        addLog("[ERROR]", "warning", `Poll network error: ${error.message}`);
+        // continue polling on network errors
       }
     }, POLL_INTERVAL);
+  };
+
+  // ── Retry ──
+  const retryPayment = () => {
+    if (pollActiveRef.current) return;
+    addLog("[RETRY]", "info", "User initiated retry");
+    setPaymentStatus("idle");
+    setFailureMessage(null);
+    setPaying(false);
+    setPaid(false);
+    setCheckoutRequestID(null);
+    setReceipt(null);
   };
 
   // ── WhatsApp ──
@@ -254,6 +398,7 @@ const UploadPrint = () => {
   };
 
   const reset = () => {
+    stopPolling();
     files.forEach((f) => f.preview && URL.revokeObjectURL(f.preview));
     setFiles([]);
     setPrintType("bw");
@@ -264,6 +409,10 @@ const UploadPrint = () => {
     setPaid(false);
     setPaymentStatus("idle");
     setCheckoutRequestID(null);
+    setReceipt(null);
+    setFailureMessage(null);
+    setCountdown(0);
+    clearLogs();
     setStep(0);
   };
 
@@ -445,28 +594,43 @@ const UploadPrint = () => {
                     placeholder="e.g. 0746721989"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    disabled={paying}
+                    className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                   />
                 </div>
 
                 {paymentStatus === "pending" && (
-                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-center">
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1">
                     <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Waiting for payment confirmation…
                     </p>
+                    {countdown > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Timeout in <span className="font-mono font-bold text-foreground">{countdown}s</span>
+                      </p>
+                    )}
                   </div>
                 )}
 
                 {paymentStatus === "failed" && (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-center">
-                    <p className="text-sm text-destructive">Payment failed. Please try again.</p>
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-center space-y-2">
+                    <p className="text-sm text-destructive font-medium">
+                      {failureMessage || "Payment failed. Please try again."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={retryPayment}
+                      className="text-xs text-destructive underline hover:no-underline"
+                    >
+                      Try again
+                    </button>
                   </div>
                 )}
 
                 <button
                   type="button"
-                  onClick={triggerPayment}
+                  onClick={paymentStatus === "failed" ? retryPayment : triggerPayment}
                   disabled={paying}
                   className="w-full rounded-lg bg-[#4CAF50] py-3.5 font-semibold text-white transition-all hover:brightness-110 shadow-md flex items-center justify-center gap-2 disabled:opacity-60"
                 >
@@ -476,11 +640,22 @@ const UploadPrint = () => {
                       {paymentStatus === "pending" ? "Waiting for payment…" : "Sending STK Push…"}
                     </>
                   ) : paymentStatus === "failed" ? (
-                    "Retry Payment"
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      Retry Payment
+                    </>
                   ) : (
                     "Pay with M-Pesa"
                   )}
                 </button>
+
+                {/* Debug Panel */}
+                <PaymentDebugPanel
+                  logs={logs}
+                  state={debugState}
+                  onClear={clearLogs}
+                  countdown={countdown}
+                />
               </>
             ) : (
               <div className="text-center space-y-3 py-4">
@@ -488,6 +663,9 @@ const UploadPrint = () => {
                   <Check className="h-7 w-7 text-[#4CAF50]" />
                 </div>
                 <h3 className="text-lg font-bold">Payment Successful</h3>
+                {receipt && (
+                  <p className="text-xs text-muted-foreground font-mono">Receipt: {receipt}</p>
+                )}
                 <p className="text-sm text-muted-foreground">Your print order has been received.</p>
               </div>
             )}
@@ -513,6 +691,7 @@ const UploadPrint = () => {
               <SummaryRow label="Pages" value={String(totalPages)} />
               <SummaryRow label="Copies" value={String(copies)} />
               <SummaryRow label="Print Type" value={printType === "bw" ? "Black & White" : "Color"} />
+              {receipt && <SummaryRow label="Receipt" value={receipt} />}
               <div className="flex justify-between px-4 py-3 bg-primary/5 font-bold">
                 <span>Total</span>
                 <span className="text-primary">KES {totalPrice.toLocaleString()}</span>
