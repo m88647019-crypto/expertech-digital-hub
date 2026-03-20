@@ -34,6 +34,13 @@ const Navbar = () => {
           >
             Contact Us
           </a>
+          <a
+            href="/login"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            <LogIn className="h-4 w-4" />
+            Staff Login
+          </a>
         </nav>
 
         {/* Mobile toggle */}
