@@ -1,45 +1,59 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, LogIn } from "lucide-react";
+import { Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
-const Login = () => {
+const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const { signIn, user, role, loading } = useAuth();
+  const { user, role } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // If already logged in, redirect based on role
-  useEffect(() => {
-    if (!loading && user) {
-      if (role === "admin") navigate("/admin", { replace: true });
-      else if (role === "cashier") navigate("/dashboard", { replace: true });
-      else navigate("/", { replace: true });
-    }
-  }, [user, role, loading, navigate]);
+  // If already logged in, redirect
+  if (user) {
+    if (role === "admin") navigate("/admin", { replace: true });
+    else if (role === "cashier") navigate("/dashboard", { replace: true });
+    else navigate("/", { replace: true });
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
 
-    setSubmitting(true);
-    const { error } = await signIn(email, password);
-    setSubmitting(false);
-
-    if (error) {
-      toast({ title: "Login failed", description: error, variant: "destructive" });
+    if (password !== confirmPassword) {
+      toast({ title: "Passwords don't match", variant: "destructive" });
       return;
     }
 
-    toast({ title: "Login successful" });
-    // onAuthStateChange will update role, then ProtectedRoute handles redirect
+    if (password.length < 6) {
+      toast({ title: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+
+    setSubmitting(true);
+    const { error } = await supabase.auth.signUp({ email, password });
+    setSubmitting(false);
+
+    if (error) {
+      toast({ title: "Registration failed", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    toast({
+      title: "Account created",
+      description: "Check your email to verify your account, then log in.",
+    });
+    navigate("/login");
   };
 
   return (
@@ -49,7 +63,7 @@ const Login = () => {
           <CardTitle className="text-2xl font-bold">
             EXPERTECH<span className="text-accent">.</span>
           </CardTitle>
-          <CardDescription>Sign in to your staff account</CardDescription>
+          <CardDescription>Create a new account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -77,21 +91,33 @@ const Login = () => {
                 required
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={submitting}
+                required
+              />
+            </div>
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
-                <LogIn className="h-4 w-4 mr-2" />
+                <UserPlus className="h-4 w-4 mr-2" />
               )}
-              Sign In
+              Create Account
             </Button>
           </form>
         </CardContent>
         <CardFooter className="justify-center">
           <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Link to="/register" className="text-primary font-medium hover:underline">
-              Register
+            Already have an account?{" "}
+            <Link to="/login" className="text-primary font-medium hover:underline">
+              Sign in
             </Link>
           </p>
         </CardFooter>
@@ -100,4 +126,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Register;

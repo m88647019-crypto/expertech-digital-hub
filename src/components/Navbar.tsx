@@ -77,6 +77,14 @@ const Navbar = () => {
               >
                 Contact Us on WhatsApp
               </a>
+              <a
+                href="/login"
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground"
+              >
+                <LogIn className="h-4 w-4" />
+                Staff Login
+              </a>
             </div>
           </motion.nav>
         )}
