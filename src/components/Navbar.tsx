@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogIn } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const links = [
@@ -33,6 +33,13 @@ const Navbar = () => {
             className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:brightness-110 transition-all"
           >
             Contact Us
+          </a>
+          <a
+            href="/login"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+          >
+            <LogIn className="h-4 w-4" />
+            Staff Login
           </a>
         </nav>
 
@@ -69,6 +76,14 @@ const Navbar = () => {
                 className="block w-full text-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
               >
                 Contact Us on WhatsApp
+              </a>
+              <a
+                href="/login"
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground"
+              >
+                <LogIn className="h-4 w-4" />
+                Staff Login
               </a>
             </div>
           </motion.nav>
