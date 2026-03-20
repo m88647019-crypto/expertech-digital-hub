@@ -1,29 +1,29 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const { signIn, user, role } = useAuth();
+  const { signIn, user, role, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // If already logged in, redirect
-  if (user) {
-    if (role === "admin") {
-      navigate("/admin", { replace: true });
-    } else if (role === "cashier") {
-      navigate("/dashboard", { replace: true });
+  // If already logged in, redirect based on role
+  useEffect(() => {
+    if (!loading && user) {
+      if (role === "admin") navigate("/admin", { replace: true });
+      else if (role === "cashier") navigate("/dashboard", { replace: true });
+      else navigate("/", { replace: true });
     }
-  }
+  }, [user, role, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
