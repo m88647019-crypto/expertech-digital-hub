@@ -22,7 +22,7 @@ interface Props {
 }
 
 export default function JobDetailModal({ job, onClose, onUpdate }: Props) {
-  const [status, setStatus] = useState(job.status);
+  const [status, setStatus] = useState<string>(job.status);
   const [notes, setNotes] = useState(job.notes || "");
   const [price, setPrice] = useState(job.price?.toString() || "0");
   const [paid, setPaid] = useState(job.paid);
