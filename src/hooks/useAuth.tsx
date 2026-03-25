@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import type { User, Session } from "@supabase/supabase-js";
 
 export type AppRole = "admin" | "cashier" | "user";
@@ -55,7 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Set up auth listener FIRST
+    // If Supabase isn't configured, skip auth entirely
+    if (!isSupabaseConfigured) {
+      setState((s) => ({ ...s, loading: false }));
+      return;
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (session?.user) {
@@ -67,7 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Then get initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         const { role, permissions } = await fetchRoleAndPermissions(session.user.id);
@@ -75,12 +79,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setState((s) => ({ ...s, loading: false }));
       }
+    }).catch(() => {
+      setState((s) => ({ ...s, loading: false }));
     });
 
     return () => subscription.unsubscribe();
   }, [fetchRoleAndPermissions]);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    if (!isSupabaseConfigured) return { error: "Backend not configured" };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message || null };
   }, []);
