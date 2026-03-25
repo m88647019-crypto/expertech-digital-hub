@@ -14,7 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      business_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      print_jobs: {
+        Row: {
+          branch: string | null
+          color_option: string
+          copies: number
+          created_at: string
+          email: string | null
+          file_url: string | null
+          id: string
+          instructions: string | null
+          name: string
+          notes: string | null
+          paid: boolean
+          paper_size: string
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          phone: string | null
+          price: number | null
+          status: Database["public"]["Enums"]["job_status"]
+          updated_at: string
+        }
+        Insert: {
+          branch?: string | null
+          color_option?: string
+          copies?: number
+          created_at?: string
+          email?: string | null
+          file_url?: string | null
+          id?: string
+          instructions?: string | null
+          name?: string
+          notes?: string | null
+          paid?: boolean
+          paper_size?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          phone?: string | null
+          price?: number | null
+          status?: Database["public"]["Enums"]["job_status"]
+          updated_at?: string
+        }
+        Update: {
+          branch?: string | null
+          color_option?: string
+          copies?: number
+          created_at?: string
+          email?: string | null
+          file_url?: string | null
+          id?: string
+          instructions?: string | null
+          name?: string
+          notes?: string | null
+          paid?: boolean
+          paper_size?: string
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          phone?: string | null
+          price?: number | null
+          status?: Database["public"]["Enums"]["job_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +103,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      job_status:
+        | "pending"
+        | "processing"
+        | "printing"
+        | "completed"
+        | "collected"
+        | "cancelled"
+      payment_method: "cash" | "mpesa" | "card"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +237,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      job_status: [
+        "pending",
+        "processing",
+        "printing",
+        "completed",
+        "collected",
+        "cancelled",
+      ],
+      payment_method: ["cash", "mpesa", "card"],
+    },
   },
 } as const
