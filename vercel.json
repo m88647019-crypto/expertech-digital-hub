@@ -1,5 +1,18 @@
 {
   "rewrites": [
+    { "source": "/api/stkPush", "destination": "/api?route=stkPush" },
+    { "source": "/api/checkStatus", "destination": "/api?route=checkStatus" },
+    { "source": "/api/mpesaCallback", "destination": "/api?route=mpesaCallback" },
+    { "source": "/api/saveOrder", "destination": "/api?route=saveOrder" },
+    { "source": "/api/getAccessToken", "destination": "/api?route=getAccessToken" },
+    { "source": "/api/cleanup", "destination": "/api?route=cleanup" },
+    { "source": "/api/admin/analytics", "destination": "/api?route=admin/analytics" },
+    { "source": "/api/admin/createCashier", "destination": "/api?route=admin/createCashier" },
+    { "source": "/api/admin/deleteCashier", "destination": "/api?route=admin/deleteCashier" },
+    { "source": "/api/admin/files", "destination": "/api?route=admin/files" },
+    { "source": "/api/admin/getCashiers", "destination": "/api?route=admin/getCashiers" },
+    { "source": "/api/admin/orders", "destination": "/api?route=admin/orders" },
+    { "source": "/api/admin/updatePermissions", "destination": "/api?route=admin/updatePermissions" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
