@@ -29,7 +29,7 @@ export function usePrintJobs() {
       .order("created_at", { ascending: false });
 
     if (filters.status && filters.status !== "all") {
-      query = query.eq("status", filters.status);
+      query = query.eq("status", filters.status as any);
     }
     if (filters.branch && filters.branch !== "all") {
       query = query.eq("branch", filters.branch);

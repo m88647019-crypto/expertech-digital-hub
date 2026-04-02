@@ -66,10 +66,10 @@ const Dashboard = () => {
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status: newStatus })
-        .eq("id", orderId);
+      const { error } = await (supabase
+        .from("orders" as any)
+        .update({ status: newStatus } as any)
+        .eq("id", orderId) as any);
       if (error) throw error;
       toast({ title: `Order status updated to ${newStatus}` });
       fetchOrders();
