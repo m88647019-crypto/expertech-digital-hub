@@ -57,7 +57,7 @@ const Dashboard = () => {
   useEffect(() => {
     const channel = supabase
       .channel("cashier-orders")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" } as any, () => {
         fetchOrders();
       })
       .subscribe();
