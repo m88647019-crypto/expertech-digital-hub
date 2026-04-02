@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, LogIn } from "lucide-react";
+import { Loader2, LogIn, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,16 +13,28 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [adminExists, setAdminExists] = useState<boolean | null>(null);
   const { signIn, user, role, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Check if admin exists (to show/hide register link)
+  useEffect(() => {
+    supabase.rpc("admin_exists").then(({ data, error }) => {
+      if (error) {
+        setAdminExists(true);
+      } else {
+        setAdminExists(!!data);
+      }
+    });
+  }, []);
 
   // If already logged in, redirect based on role
   useEffect(() => {
     if (!loading && user) {
       if (role === "admin") navigate("/admin", { replace: true });
       else if (role === "cashier") navigate("/dashboard", { replace: true });
-      else navigate("/admin", { replace: true }); // Default to admin panel for logged-in users
+      else navigate("/admin", { replace: true });
     }
   }, [user, role, loading, navigate]);
 
@@ -39,13 +52,15 @@ const Login = () => {
     }
 
     toast({ title: "Login successful" });
-    // onAuthStateChange will update role, then ProtectedRoute handles redirect
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+            <LogIn className="h-7 w-7 text-primary" />
+          </div>
           <CardTitle className="text-2xl font-bold">
             EXPERTECH<span className="text-accent">.</span>
           </CardTitle>
@@ -88,12 +103,15 @@ const Login = () => {
           </form>
         </CardContent>
         <CardFooter className="justify-center">
-          <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Link to="/register" className="text-primary font-medium hover:underline">
-              Register
-            </Link>
-          </p>
+          {adminExists === false && (
+            <p className="text-sm text-muted-foreground">
+              No admin yet?{" "}
+              <Link to="/register" className="text-primary font-medium hover:underline inline-flex items-center gap-1">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Set up admin account
+              </Link>
+            </p>
+          )}
         </CardFooter>
       </Card>
     </div>
