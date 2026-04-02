@@ -21,7 +21,7 @@ const Login = () => {
     if (!loading && user) {
       if (role === "admin") navigate("/admin", { replace: true });
       else if (role === "cashier") navigate("/dashboard", { replace: true });
-      else navigate("/", { replace: true });
+      else navigate("/admin", { replace: true }); // Default to admin panel for logged-in users
     }
   }, [user, role, loading, navigate]);
 
