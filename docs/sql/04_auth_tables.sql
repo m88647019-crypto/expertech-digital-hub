@@ -85,8 +85,45 @@ CREATE POLICY "Authenticated users can insert logs"
   WITH CHECK (auth.uid() = user_id);
 
 -- =============================================
--- IMPORTANT: After creating tables, assign yourself admin role:
--- Replace 'YOUR_USER_UUID' with your auth.users id
+-- 5. ADMIN-GATED REGISTRATION FUNCTIONS
 -- =============================================
--- INSERT INTO public.user_roles (user_id, role)
--- VALUES ('YOUR_USER_UUID', 'admin');
+
+-- Check if any admin exists (callable by anon for registration gate)
+CREATE OR REPLACE FUNCTION public.admin_exists()
+RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles WHERE role = 'admin'
+  )
+$$;
+
+GRANT EXECUTE ON FUNCTION public.admin_exists() TO anon;
+GRANT EXECUTE ON FUNCTION public.admin_exists() TO authenticated;
+
+-- Auto-assign admin role to first registered user (only works when no admin exists)
+CREATE OR REPLACE FUNCTION public.auto_assign_first_admin(_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.user_roles WHERE role = 'admin') THEN
+    INSERT INTO public.user_roles (user_id, role)
+    VALUES (_user_id, 'admin')
+    ON CONFLICT (user_id, role) DO NOTHING;
+    RETURN true;
+  END IF;
+  RETURN false;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.auto_assign_first_admin(UUID) TO authenticated;
+
+-- =============================================
+-- NOTE: The first person to register via the app
+-- will automatically become the admin.
+-- After that, registration is locked — only the
+-- admin can add new users from the admin panel.
+-- =============================================
