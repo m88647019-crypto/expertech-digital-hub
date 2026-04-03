@@ -96,12 +96,13 @@ const Register = () => {
       return;
     }
 
-    // Auto-assign admin role to the first user
+    // Auto-assign admin role to the first user (works without session - anon granted)
     if (data.user) {
-      // Wait for session to be established, then assign role
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session) {
-        await supabase.rpc("auto_assign_first_admin", { _user_id: data.user.id });
+      const { error: roleError } = await supabase.rpc("auto_assign_first_admin", {
+        _user_id: data.user.id,
+      } as any);
+      if (roleError) {
+        console.error("Failed to assign admin role:", roleError);
       }
     }
 
