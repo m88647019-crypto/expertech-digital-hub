@@ -1,6 +1,6 @@
 -- =============================================
--- Tables added for RBAC (Role-Based Access Control)
--- These complement the existing print_jobs & business_settings tables
+-- EXPERTECH RBAC (Role-Based Access Control)
+-- Run this AFTER 01_print_jobs.sql, 02_business_settings.sql
 -- =============================================
 
 -- 1. ENUM for roles
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
 
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
--- Security definer function (avoids RLS recursion)
+-- 3. Security definer function (avoids RLS recursion)
 CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
 RETURNS BOOLEAN
 LANGUAGE sql STABLE SECURITY DEFINER
@@ -31,6 +31,7 @@ AS $$
   )
 $$;
 
+-- 4. RLS policies for user_roles
 CREATE POLICY "Users can view their own role"
   ON public.user_roles FOR SELECT TO authenticated
   USING (auth.uid() = user_id);
@@ -39,7 +40,7 @@ CREATE POLICY "Admins can manage all roles"
   ON public.user_roles FOR ALL TO authenticated
   USING (public.has_role(auth.uid(), 'admin'));
 
--- 3. PERMISSIONS table
+-- 5. PERMISSIONS table
 CREATE TABLE IF NOT EXISTS public.permissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
@@ -64,7 +65,7 @@ CREATE TRIGGER update_permissions_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
 
--- 4. ACTIVITY_LOGS table
+-- 6. ACTIVITY_LOGS table
 CREATE TABLE IF NOT EXISTS public.activity_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
@@ -85,7 +86,7 @@ CREATE POLICY "Authenticated users can insert logs"
   WITH CHECK (auth.uid() = user_id);
 
 -- =============================================
--- 5. ADMIN-GATED REGISTRATION FUNCTIONS
+-- 7. ADMIN-GATED REGISTRATION FUNCTIONS
 -- =============================================
 
 -- Check if any admin exists (callable by anon for registration gate)
@@ -102,7 +103,9 @@ $$;
 GRANT EXECUTE ON FUNCTION public.admin_exists() TO anon;
 GRANT EXECUTE ON FUNCTION public.admin_exists() TO authenticated;
 
--- Auto-assign admin role to first registered user (only works when no admin exists)
+-- Auto-assign admin role to first registered user
+-- Granted to BOTH anon and authenticated so it works
+-- before email confirmation. Safe: only works when no admin exists.
 CREATE OR REPLACE FUNCTION public.auto_assign_first_admin(_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql SECURITY DEFINER
@@ -119,11 +122,13 @@ BEGIN
 END;
 $$;
 
+GRANT EXECUTE ON FUNCTION public.auto_assign_first_admin(UUID) TO anon;
 GRANT EXECUTE ON FUNCTION public.auto_assign_first_admin(UUID) TO authenticated;
 
 -- =============================================
--- NOTE: The first person to register via the app
--- will automatically become the admin.
--- After that, registration is locked — only the
--- admin can add new users from the admin panel.
+-- FLOW:
+-- 1. First person to register becomes admin automatically
+-- 2. After that, /register shows "Registration closed"
+-- 3. Admin adds new staff from the admin panel
+-- 4. Login redirects admin → /admin, cashier → /dashboard
 -- =============================================
