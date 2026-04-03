@@ -88,7 +88,16 @@ const Register = () => {
     }
 
     setSubmitting(true);
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const siteUrl = window.location.hostname === "localhost"
+      ? window.location.origin
+      : "https://expertech.vercel.app";
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${siteUrl}/login`,
+      },
+    });
     setSubmitting(false);
 
     if (error) {
