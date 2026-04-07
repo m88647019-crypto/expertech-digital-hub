@@ -14,7 +14,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [adminExists, setAdminExists] = useState<boolean | null>(null);
-  const { signIn, user, role, loading } = useAuth();
+  const { signIn, user, role, loading, roleLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -29,14 +29,14 @@ const Login = () => {
     });
   }, []);
 
-  // If already logged in, redirect based on role
+  // If already logged in, redirect once role is loaded
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && !roleLoading && user) {
       if (role === "admin") navigate("/admin", { replace: true });
       else if (role === "cashier") navigate("/dashboard", { replace: true });
       else navigate("/admin", { replace: true });
     }
-  }, [user, role, loading, navigate]);
+  }, [user, role, loading, roleLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
