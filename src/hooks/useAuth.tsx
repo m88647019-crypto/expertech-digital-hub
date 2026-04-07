@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, useContext, type ReactNode } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -19,6 +19,7 @@ interface AuthState {
   role: AppRole;
   permissions: Permissions;
   loading: boolean;
+  roleLoading: boolean;
 }
 
 interface AuthContextType extends AuthState {
@@ -36,9 +37,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: "user",
     permissions: {},
     loading: true,
+    roleLoading: false,
   });
 
+  // Prevent duplicate role fetches
+  const lastFetchedUserId = useRef<string | null>(null);
+  const initialSessionHandled = useRef(false);
+
   const fetchRoleAndPermissions = useCallback(async (userId: string) => {
+    // Skip if we already fetched for this user
+    if (lastFetchedUserId.current === userId) return null;
+    lastFetchedUserId.current = userId;
+
     try {
       const [roleRes, permRes] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", userId).single(),
@@ -55,31 +65,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // If Supabase isn't configured, skip auth entirely
     if (!isSupabaseConfigured) {
       setState((s) => ({ ...s, loading: false }));
       return;
     }
 
+    // 1. Set up listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
+        if (initialSessionHandled.current === false) {
+          // Let getSession handle the first load to avoid double-fetch
+          return;
+        }
+
         if (session?.user) {
-          const { role, permissions } = await fetchRoleAndPermissions(session.user.id);
-          setState({ user: session.user, session, role, permissions, loading: false });
+          // Immediately set user (no lag), then fetch role in background
+          setState((s) => ({
+            ...s,
+            user: session.user,
+            session,
+            loading: false,
+            roleLoading: true,
+          }));
+          lastFetchedUserId.current = null; // Reset to allow re-fetch
+          fetchRoleAndPermissions(session.user.id).then((result) => {
+            if (result) {
+              setState((s) => ({
+                ...s,
+                role: result.role,
+                permissions: result.permissions,
+                roleLoading: false,
+              }));
+            }
+          });
         } else {
-          setState({ user: null, session: null, role: "user", permissions: {}, loading: false });
+          lastFetchedUserId.current = null;
+          setState({
+            user: null,
+            session: null,
+            role: "user",
+            permissions: {},
+            loading: false,
+            roleLoading: false,
+          });
         }
       }
     );
 
+    // 2. Then check existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      initialSessionHandled.current = true;
       if (session?.user) {
-        const { role, permissions } = await fetchRoleAndPermissions(session.user.id);
-        setState({ user: session.user, session, role, permissions, loading: false });
+        // Set user immediately
+        setState((s) => ({
+          ...s,
+          user: session.user,
+          session,
+          loading: false,
+          roleLoading: true,
+        }));
+        const result = await fetchRoleAndPermissions(session.user.id);
+        if (result) {
+          setState((s) => ({
+            ...s,
+            role: result.role,
+            permissions: result.permissions,
+            roleLoading: false,
+          }));
+        }
       } else {
         setState((s) => ({ ...s, loading: false }));
       }
     }).catch(() => {
+      initialSessionHandled.current = true;
       setState((s) => ({ ...s, loading: false }));
     });
 
@@ -88,11 +146,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!isSupabaseConfigured) return { error: "Backend not configured" };
+    // Reset to allow fresh role fetch on sign-in
+    lastFetchedUserId.current = null;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error?.message || null };
   }, []);
 
   const signOut = useCallback(async () => {
+    lastFetchedUserId.current = null;
     await supabase.auth.signOut();
   }, []);
 
