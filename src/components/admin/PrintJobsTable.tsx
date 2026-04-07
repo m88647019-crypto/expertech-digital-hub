@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import {
   Search, RefreshCw, Loader2, Trash2, Download, Eye, MessageCircle, Mail,
-  CheckCircle2, X, Filter
+  CheckCircle2, X, Filter, FileDown
 } from "lucide-react";
 import JobDetailModal from "./JobDetailModal";
 

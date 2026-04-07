@@ -277,11 +277,12 @@ async function handleSaveOrder(req, res) {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { checkoutRequestID } = req.body;
+    const { checkoutRequestID, name, phone: customerPhone, email, filePaths, copies, colorOption, paperSize, totalPrice } = req.body;
     if (!checkoutRequestID) {
       return res.status(400).json({ error: "Missing checkoutRequestID" });
     }
 
+    // Look up payment record
     const { data: payment, error: paymentError } = await supabase
       .from("payments")
       .select("*")
@@ -296,21 +297,34 @@ async function handleSaveOrder(req, res) {
       return res.status(400).json({ error: "Payment not completed" });
     }
 
-    const { error } = await supabase.from("orders").upsert(
-      {
-        checkout_request_id: checkoutRequestID,
-        phone: payment.phone,
-        amount: payment.amount,
-        receipt: payment.receipt,
-      },
-      { onConflict: "checkout_request_id" }
-    );
+    // Build file_url from uploaded paths (comma-separated for multiple files)
+    const fileUrl = (filePaths && filePaths.length > 0) ? filePaths.join(",") : "";
+
+    // Save directly to print_jobs (the table the admin panel reads from)
+    const { error } = await supabase.from("print_jobs").insert({
+      name: name || "",
+      phone: customerPhone || payment.phone || "",
+      email: email || "",
+      file_url: fileUrl,
+      copies: copies || 1,
+      color_option: colorOption || "bw",
+      paper_size: paperSize || "A4",
+      price: totalPrice || payment.amount || 0,
+      paid: true,
+      payment_method: "mpesa",
+      status: "pending",
+      checkout_request_id: checkoutRequestID,
+      receipt: payment.receipt || "",
+      notes: "",
+      branch: "",
+    });
 
     if (error) {
-      return res.status(500).json({ error: "Failed to save order" });
+      console.error("SAVE ORDER DB ERROR:", error);
+      return res.status(500).json({ error: "Failed to save order", details: error.message });
     }
 
-    return res.status(200).json({ success: true, message: "Order saved successfully (idempotent)" });
+    return res.status(200).json({ success: true, message: "Order saved to print jobs" });
   } catch (err) {
     console.error("SAVE ORDER ERROR:", err);
     return res.status(500).json({ error: "Server error" });

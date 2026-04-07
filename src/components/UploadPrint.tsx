@@ -178,11 +178,11 @@ const UploadPrint = () => {
     orderSavedRef.current = true;
 
     // Step 1: Upload files
+    const uploadedPaths: string[] = [];
     try {
       setUploadStatus("uploading");
       addLog("[SAVE]", "info", "Uploading files...");
 
-      const uploadedPaths: string[] = [];
       for (const f of files) {
         const formData = new FormData();
         formData.append("file", f.file);
@@ -196,7 +196,6 @@ const UploadPrint = () => {
         if (!uploadRes.ok) {
           const errText = await uploadRes.text().catch(() => "");
           addLog("[SAVE]", "warning", `File upload failed for ${f.file.name}: ${uploadRes.status}`, errText);
-          // Continue with other files
         } else {
           const uploadData = await uploadRes.json().catch(() => ({}));
           uploadedPaths.push(uploadData.filePath || f.file.name);
@@ -207,13 +206,21 @@ const UploadPrint = () => {
       setUploadStatus("done");
       addLog("[SAVE]", "success", `All files uploaded (${uploadedPaths.length}/${files.length})`);
 
-      // Step 2: Save order to DB
+      // Step 2: Save order to print_jobs via API
       addLog("[SAVE]", "info", "Saving order to database...");
       const res = await fetch("/api/saveOrder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           checkoutRequestID: crid,
+          name: phone, // use phone as customer identifier
+          phone: phone,
+          email: "",
+          filePaths: uploadedPaths,
+          copies,
+          colorOption: printType,
+          paperSize,
+          totalPrice,
         }),
       });
 
@@ -227,7 +234,7 @@ const UploadPrint = () => {
       addLog("[SAVE]", "error", `Upload/save failed: ${err.message}`);
       setUploadStatus("failed");
     }
-  }, [files, addLog]);
+  }, [files, addLog, phone, copies, printType, paperSize, totalPrice]);
 
   // ── Payment via real STK Push ──
   const formatPhone = (raw: string): string => {

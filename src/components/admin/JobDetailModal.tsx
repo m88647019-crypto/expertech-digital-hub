@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { PrintJob, JobStatus, PaymentMethod } from "@/types/printJob";
 import { JOB_STATUSES, STATUS_COLORS, PAYMENT_METHODS } from "@/types/printJob";
 import {
@@ -13,7 +13,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, Mail, ExternalLink, Download, Loader2 } from "lucide-react";
+import { MessageCircle, Mail, ExternalLink, Download, Loader2, FileText } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Props {
   job: PrintJob;
@@ -22,12 +23,16 @@ interface Props {
 }
 
 export default function JobDetailModal({ job, onClose, onUpdate }: Props) {
+  const { session } = useAuth();
   const [status, setStatus] = useState<string>(job.status);
   const [notes, setNotes] = useState(job.notes || "");
   const [price, setPrice] = useState(job.price?.toString() || "0");
   const [paid, setPaid] = useState(job.paid);
   const [paymentMethod, setPaymentMethod] = useState(job.payment_method || "");
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const filePaths = job.file_url ? job.file_url.split(",").filter(Boolean) : [];
 
   const handleSave = async () => {
     setSaving(true);
@@ -40,6 +45,23 @@ export default function JobDetailModal({ job, onClose, onUpdate }: Props) {
     });
     setSaving(false);
   };
+
+  const downloadFile = useCallback(async (filePath: string) => {
+    setDownloading(filePath);
+    try {
+      const token = session?.access_token || "";
+      const res = await fetch(`/api/admin/files?path=${encodeURIComponent(filePath)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to get download URL");
+      const { url } = await res.json();
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error("Download error:", err);
+    } finally {
+      setDownloading(null);
+    }
+  }, [session]);
 
   const openWhatsApp = () => {
     const msg = encodeURIComponent(
@@ -100,19 +122,33 @@ export default function JobDetailModal({ job, onClose, onUpdate }: Props) {
             )}
           </div>
 
-          {/* File Preview */}
-          {job.file_url && (
+          {/* Files */}
+          {filePaths.length > 0 && (
             <div className="space-y-2 md:col-span-2">
-              <h3 className="text-sm font-semibold text-foreground">File</h3>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => window.open(job.file_url!, "_blank")}>
-                  <ExternalLink className="h-4 w-4 mr-1" /> Preview
-                </Button>
-                <Button size="sm" variant="outline" asChild>
-                  <a href={job.file_url} download>
-                    <Download className="h-4 w-4 mr-1" /> Download
-                  </a>
-                </Button>
+              <h3 className="text-sm font-semibold text-foreground">Files ({filePaths.length})</h3>
+              <div className="space-y-2">
+                {filePaths.map((fp, i) => {
+                  const fileName = fp.split("/").pop() || `File ${i + 1}`;
+                  return (
+                    <div key={i} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
+                      <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                      <span className="text-sm truncate flex-1">{fileName}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => downloadFile(fp)}
+                        disabled={downloading === fp}
+                      >
+                        {downloading === fp ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="h-3.5 w-3.5" />
+                        )}
+                        <span className="ml-1">Download</span>
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
