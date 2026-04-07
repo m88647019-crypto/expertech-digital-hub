@@ -164,7 +164,7 @@ BEGIN
 END;
 $$;
 
--- Grant execute to anon (needed for registration flow)
+-- Grant execute permissions
 GRANT EXECUTE ON FUNCTION public.admin_exists() TO anon;
 GRANT EXECUTE ON FUNCTION public.auto_assign_first_admin(uuid) TO anon;
 GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated;
@@ -187,7 +187,7 @@ CREATE POLICY "Authenticated users can insert print jobs" ON public.print_jobs F
 CREATE POLICY "Authenticated users can update print jobs" ON public.print_jobs FOR UPDATE TO authenticated USING (true);
 CREATE POLICY "Authenticated users can delete print jobs" ON public.print_jobs FOR DELETE TO authenticated USING (true);
 
--- payments (anon can insert/read for STK push flow, service role handles the rest)
+-- payments
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Anon can insert payments" ON public.payments;
 DROP POLICY IF EXISTS "Anon can read payments" ON public.payments;
@@ -236,28 +236,41 @@ CREATE POLICY "Authenticated users can upsert settings" ON public.business_setti
 CREATE POLICY "Authenticated users can update settings" ON public.business_settings FOR UPDATE TO authenticated USING (true);
 
 -- =============================================
--- 6. REALTIME
+-- 6. REALTIME (FIXED)
 -- =============================================
-ALTER PUBLICATION supabase_realtime ADD TABLE public.print_jobs;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+        AND schemaname = 'public' 
+        AND tablename = 'print_jobs'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.print_jobs;
+    END IF;
+END $$;
 
 -- =============================================
--- 7. STORAGE BUCKET (for file uploads)
+-- 7. STORAGE BUCKET (FIXED)
 -- =============================================
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('uploads', 'uploads', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage RLS: anyone can upload (anon customers)
+DROP POLICY IF EXISTS "Anyone can upload files" ON storage.objects;
 CREATE POLICY "Anyone can upload files"
-ON storage.objects FOR INSERT
+ON storage.objects FOR INSERT TO public
 WITH CHECK (bucket_id = 'uploads');
 
 -- Storage RLS: authenticated (admin/cashier) can view/download
+DROP POLICY IF EXISTS "Authenticated can view uploads" ON storage.objects;
 CREATE POLICY "Authenticated can view uploads"
 ON storage.objects FOR SELECT TO authenticated
 USING (bucket_id = 'uploads');
 
 -- Storage RLS: authenticated can delete
+DROP POLICY IF EXISTS "Authenticated can delete uploads" ON storage.objects;
 CREATE POLICY "Authenticated can delete uploads"
 ON storage.objects FOR DELETE TO authenticated
 USING (bucket_id = 'uploads');
@@ -275,9 +288,8 @@ ON CONFLICT (key) DO NOTHING;
 
 -- =============================================
 -- 9. ASSIGN ADMIN ROLE
--- Replace 'your-admin@email.com' with your actual admin email
 -- =============================================
--- UNCOMMENT AND EDIT THE LINES BELOW:
+-- (Keep commented as per original template)
 /*
 WITH target AS (
   SELECT id FROM auth.users WHERE email = 'your-admin@email.com' LIMIT 1
@@ -294,10 +306,3 @@ SELECT id, '{"orders": true, "files": true, "delete_orders": true, "analytics": 
 FROM target
 ON CONFLICT (user_id) DO UPDATE SET permissions = EXCLUDED.permissions, updated_at = now();
 */
-
--- =============================================
--- DONE! After running this:
--- 1. Register at /register (first user becomes admin automatically)
--- 2. Confirm your email via the link sent to your inbox
--- 3. Log in at /login → you'll be redirected to /admin
--- =============================================
