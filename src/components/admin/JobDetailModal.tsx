@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { PrintJob, JobStatus, PaymentMethod } from "@/types/printJob";
 import { JOB_STATUSES, STATUS_COLORS, PAYMENT_METHODS } from "@/types/printJob";
 import {
@@ -13,7 +13,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, Mail, ExternalLink, Download, Loader2 } from "lucide-react";
+import { MessageCircle, Mail, ExternalLink, Download, Loader2, FileText } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Props {
   job: PrintJob;
