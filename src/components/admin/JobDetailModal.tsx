@@ -23,12 +23,16 @@ interface Props {
 }
 
 export default function JobDetailModal({ job, onClose, onUpdate }: Props) {
+  const { session } = useAuth();
   const [status, setStatus] = useState<string>(job.status);
   const [notes, setNotes] = useState(job.notes || "");
   const [price, setPrice] = useState(job.price?.toString() || "0");
   const [paid, setPaid] = useState(job.paid);
   const [paymentMethod, setPaymentMethod] = useState(job.payment_method || "");
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const filePaths = job.file_url ? job.file_url.split(",").filter(Boolean) : [];
 
   const handleSave = async () => {
     setSaving(true);
@@ -41,6 +45,23 @@ export default function JobDetailModal({ job, onClose, onUpdate }: Props) {
     });
     setSaving(false);
   };
+
+  const downloadFile = useCallback(async (filePath: string) => {
+    setDownloading(filePath);
+    try {
+      const token = session?.access_token || "";
+      const res = await fetch(`/api/admin/files?path=${encodeURIComponent(filePath)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to get download URL");
+      const { url } = await res.json();
+      window.open(url, "_blank");
+    } catch (err) {
+      console.error("Download error:", err);
+    } finally {
+      setDownloading(null);
+    }
+  }, [session]);
 
   const openWhatsApp = () => {
     const msg = encodeURIComponent(
