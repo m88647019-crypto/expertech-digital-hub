@@ -122,19 +122,33 @@ export default function JobDetailModal({ job, onClose, onUpdate }: Props) {
             )}
           </div>
 
-          {/* File Preview */}
-          {job.file_url && (
+          {/* Files */}
+          {filePaths.length > 0 && (
             <div className="space-y-2 md:col-span-2">
-              <h3 className="text-sm font-semibold text-foreground">File</h3>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => window.open(job.file_url!, "_blank")}>
-                  <ExternalLink className="h-4 w-4 mr-1" /> Preview
-                </Button>
-                <Button size="sm" variant="outline" asChild>
-                  <a href={job.file_url} download>
-                    <Download className="h-4 w-4 mr-1" /> Download
-                  </a>
-                </Button>
+              <h3 className="text-sm font-semibold text-foreground">Files ({filePaths.length})</h3>
+              <div className="space-y-2">
+                {filePaths.map((fp, i) => {
+                  const fileName = fp.split("/").pop() || `File ${i + 1}`;
+                  return (
+                    <div key={i} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
+                      <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                      <span className="text-sm truncate flex-1">{fileName}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => downloadFile(fp)}
+                        disabled={downloading === fp}
+                      >
+                        {downloading === fp ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="h-3.5 w-3.5" />
+                        )}
+                        <span className="ml-1">Download</span>
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
