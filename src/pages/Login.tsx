@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, LogIn, ShieldCheck } from "lucide-react";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -16,27 +16,26 @@ const Login = () => {
   const [adminExists, setAdminExists] = useState<boolean | null>(null);
   const { signIn, user, role, loading, roleLoading } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const location = useLocation();
 
-  // Check if admin exists (to show/hide register link)
+  // Get the page user was trying to access before being redirected to login
+  const from = (location.state as any)?.from?.pathname || null;
+
   useEffect(() => {
     supabase.rpc("admin_exists").then(({ data, error }) => {
-      if (error) {
-        setAdminExists(true);
-      } else {
-        setAdminExists(!!data);
-      }
+      if (error) setAdminExists(true);
+      else setAdminExists(!!data);
     });
   }, []);
 
   // If already logged in, redirect once role is loaded
   useEffect(() => {
     if (!loading && !roleLoading && user) {
-      if (role === "admin") navigate("/admin", { replace: true });
-      else if (role === "cashier") navigate("/dashboard", { replace: true });
-      else navigate("/admin", { replace: true });
+      const destination = from || (role === "cashier" ? "/dashboard" : "/admin");
+      toast.success(`Welcome back! Redirecting...`);
+      navigate(destination, { replace: true });
     }
-  }, [user, role, loading, roleLoading, navigate]);
+  }, [user, role, loading, roleLoading, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,11 +46,11 @@ const Login = () => {
     setSubmitting(false);
 
     if (error) {
-      toast({ title: "Login failed", description: error, variant: "destructive" });
+      toast.error("Login failed", { description: error });
       return;
     }
 
-    toast({ title: "Login successful" });
+    toast.success("Login successful! Loading your workspace...");
   };
 
   return (
@@ -67,6 +66,13 @@ const Login = () => {
           <CardDescription>Sign in to your staff account</CardDescription>
         </CardHeader>
         <CardContent>
+          {from && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-3">
+              <p className="text-xs text-muted-foreground">
+                Please sign in to access <strong className="text-foreground">{from}</strong>
+              </p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

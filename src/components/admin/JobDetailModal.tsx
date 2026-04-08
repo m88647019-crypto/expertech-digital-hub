@@ -13,8 +13,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageCircle, Mail, ExternalLink, Download, Loader2, FileText } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { MessageCircle, Mail, Download, Loader2, FileText } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { toast } from "sonner";
 
 interface Props {
   job: PrintJob;
@@ -23,7 +24,6 @@ interface Props {
 }
 
 export default function JobDetailModal({ job, onClose, onUpdate }: Props) {
-  const { session } = useAuth();
   const [status, setStatus] = useState<string>(job.status);
   const [notes, setNotes] = useState(job.notes || "");
   const [price, setPrice] = useState(job.price?.toString() || "0");
@@ -43,25 +43,33 @@ export default function JobDetailModal({ job, onClose, onUpdate }: Props) {
       paid,
       payment_method: paymentMethod as PaymentMethod || null,
     });
+    toast.success("Job updated successfully");
     setSaving(false);
   };
 
   const downloadFile = useCallback(async (filePath: string) => {
     setDownloading(filePath);
     try {
-      const token = session?.access_token || "";
-      const res = await fetch(`/api/admin/files?path=${encodeURIComponent(filePath)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed to get download URL");
-      const { url } = await res.json();
-      window.open(url, "_blank");
-    } catch (err) {
+      // Use Supabase client directly to create a signed URL
+      const { data, error } = await supabase.storage
+        .from("uploads")
+        .createSignedUrl(filePath, 300);
+
+      if (error || !data?.signedUrl) {
+        toast.error("Download failed", { description: error?.message || "Could not generate download URL" });
+        return;
+      }
+
+      // Open signed URL in new tab to trigger download
+      window.open(data.signedUrl, "_blank");
+      toast.success("Download started");
+    } catch (err: any) {
       console.error("Download error:", err);
+      toast.error("Download failed", { description: err.message });
     } finally {
       setDownloading(null);
     }
-  }, [session]);
+  }, []);
 
   const openWhatsApp = () => {
     const msg = encodeURIComponent(

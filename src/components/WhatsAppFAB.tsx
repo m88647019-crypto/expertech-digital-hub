@@ -1,9 +1,13 @@
 import { MessageCircle } from "lucide-react";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 
 const WhatsAppFAB = () => {
+  const { settings } = useBusinessSettings();
+  const waNumber = settings.whatsapp_number || "254746721989";
+
   return (
     <a
-      href="https://wa.me/254746721989?text=Hi%20Expertech!%20I%20need%20help%20with..."
+      href={`https://wa.me/${waNumber}?text=Hi%20Expertech!%20I%20need%20help%20with...`}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"
