@@ -1,7 +1,7 @@
 -- ============================================================
 -- 08_storage_and_setup.sql
 -- Storage bucket for file uploads + RLS policies
--- Run this in your external Supabase SQL Editor
+-- Updated to handle existing policies and prevent errors
 -- ============================================================
 
 -- 1. Create the uploads storage bucket (private)
@@ -10,24 +10,37 @@ VALUES ('uploads', 'uploads', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. Allow anyone to upload files (customers upload before auth)
+DROP POLICY IF EXISTS "Anyone can upload files" ON storage.objects;
 CREATE POLICY "Anyone can upload files"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'uploads');
 
 -- 3. Allow authenticated users to read/download files
+DROP POLICY IF EXISTS "Authenticated users can read files" ON storage.objects;
 CREATE POLICY "Authenticated users can read files"
 ON storage.objects FOR SELECT
 TO authenticated
 USING (bucket_id = 'uploads');
 
 -- 4. Allow authenticated users to delete files
+DROP POLICY IF EXISTS "Authenticated users can delete files" ON storage.objects;
 CREATE POLICY "Authenticated users can delete files"
 ON storage.objects FOR DELETE
 TO authenticated
 USING (bucket_id = 'uploads');
 
--- 5. Enable realtime on print_jobs (for admin panel live updates)
-ALTER PUBLICATION supabase_realtime ADD TABLE public.print_jobs;
+-- 5. Enable realtime on print_jobs (Wrapped in a block to prevent "already exists" errors)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' 
+    AND schemaname = 'public' 
+    AND tablename = 'print_jobs'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.print_jobs;
+  END IF;
+END $$;
 
 -- 6. Ensure business_settings has unique key constraint for upsert
 DO $$
