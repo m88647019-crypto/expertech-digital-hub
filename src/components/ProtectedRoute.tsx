@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 
@@ -10,6 +10,7 @@ interface Props {
 
 const ProtectedRoute = ({ children, requiredRole, requiredPermission }: Props) => {
   const { user, role, loading, hasPermission } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -19,7 +20,8 @@ const ProtectedRoute = ({ children, requiredRole, requiredPermission }: Props) =
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
+  // Pass current location so Login can redirect back after auth
+  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
 
   if (requiredRole && role !== requiredRole && role !== "admin") {
     return <Navigate to="/" replace />;

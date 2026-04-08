@@ -1,6 +1,9 @@
 import { Mail, Phone, MapPin, Clock } from "lucide-react";
+import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 
 const Footer = () => {
+  const { settings } = useBusinessSettings();
+
   return (
     <footer className="bg-foreground text-background py-12">
       <div className="container">
@@ -8,7 +11,7 @@ const Footer = () => {
           {/* Brand */}
           <div>
             <h3 className="text-xl font-bold mb-3">
-              EXPERTECH<span className="text-accent">.</span>
+              {settings.business_name || "EXPERTECH"}<span className="text-accent">.</span>
             </h3>
             <p className="text-sm text-background/60">
               Your trusted digital partner — making technology accessible to every Kenyan.
@@ -32,11 +35,15 @@ const Footer = () => {
             <ul className="space-y-2 text-sm text-background/60">
               <li className="flex items-center gap-2">
                 <Phone className="h-4 w-4 flex-shrink-0" />
-                <a href="tel:+254746721989" className="hover:text-accent transition-colors">+254 746 721989</a>
+                <a href={`tel:${settings.contact_phone}`} className="hover:text-accent transition-colors">
+                  {settings.contact_phone}
+                </a>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 flex-shrink-0" />
-                <a href="mailto:expertechcomputers1@gmail.com" className="hover:text-accent transition-colors">expertechcomputers1@gmail.com</a>
+                <a href={`mailto:${settings.contact_email}`} className="hover:text-accent transition-colors">
+                  {settings.contact_email}
+                </a>
               </li>
             </ul>
           </div>
@@ -58,7 +65,7 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-background/10 pt-6 text-center text-sm text-background/40">
-          © {new Date().getFullYear()} Expertech Cyber. All rights reserved.
+          © {new Date().getFullYear()} {settings.business_name || "Expertech Cyber"}. All rights reserved.
         </div>
       </div>
     </footer>
