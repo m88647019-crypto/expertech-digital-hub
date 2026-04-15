@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  LayoutDashboard, FileText, Users, Settings, LogOut, Menu, Clock, Bell
+  LayoutDashboard, FileText, Users, Settings, LogOut, Menu, Clock, Bell, Briefcase, ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,12 +15,16 @@ import PrintJobsTable from "@/components/admin/PrintJobsTable";
 import UserManagement from "@/components/admin/UserManagement";
 import AdminSettings from "@/components/admin/AdminSettings";
 import ActivityLogs from "@/components/admin/ActivityLogs";
+import ServicesManagement from "@/components/admin/ServicesManagement";
+import ServiceRequestsTable from "@/components/admin/ServiceRequestsTable";
 
 const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "jobs", label: "Print Jobs", icon: FileText },
-  { key: "users", label: "Users", icon: Users },
-  { key: "settings", label: "Settings", icon: Settings },
+  { key: "service-requests", label: "Service Requests", icon: ClipboardList },
+  { key: "services", label: "Manage Services", icon: Briefcase, adminOnly: true },
+  { key: "users", label: "Users", icon: Users, adminOnly: true },
+  { key: "settings", label: "Settings", icon: Settings, adminOnly: true },
   { key: "activity", label: "Activity Logs", icon: Clock },
 ];
 
@@ -31,7 +35,6 @@ const Admin = () => {
 
   const getToken = useCallback(() => session?.access_token || "", [session]);
 
-  // Realtime notification for new jobs
   useEffect(() => {
     const channel = supabase
       .channel("admin-notifications")
@@ -55,8 +58,7 @@ const Admin = () => {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {NAV_ITEMS.map((item) => {
-                    // Hide user management for non-admins
-                    if (item.key === "users" && role !== "admin") return null;
+                    if (item.adminOnly && role !== "admin") return null;
                     return (
                       <SidebarMenuItem key={item.key}>
                         <SidebarMenuButton
@@ -66,8 +68,8 @@ const Admin = () => {
                           }}
                           className={activeTab === item.key ? "bg-primary/10 text-primary font-medium" : ""}
                         >
-                          <item.icon className="h-4 w-4 mr-2" />
-                          <span>{item.label}</span>
+                          <item.icon className="h-4 w-4 mr-2 flex-shrink-0" />
+                          <span className="truncate">{item.label}</span>
                           {item.key === "jobs" && newJobCount > 0 && (
                             <Badge className="ml-auto bg-destructive text-destructive-foreground text-[10px] h-5 min-w-5 flex items-center justify-center">
                               {newJobCount}
@@ -83,15 +85,15 @@ const Admin = () => {
           </SidebarContent>
         </Sidebar>
 
-        <div className="flex-1 flex flex-col">
-          <header className="h-14 border-b border-border flex items-center justify-between px-4 bg-card">
-            <div className="flex items-center gap-2">
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="h-14 border-b border-border flex items-center justify-between px-3 sm:px-4 bg-card">
+            <div className="flex items-center gap-2 min-w-0">
               <SidebarTrigger>
                 <Menu className="h-5 w-5" />
               </SidebarTrigger>
-              <h1 className="text-lg font-bold text-foreground">Admin Panel</h1>
+              <h1 className="text-base sm:text-lg font-bold text-foreground truncate">Admin Panel</h1>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               {newJobCount > 0 && (
                 <Button
                   variant="ghost"
@@ -105,17 +107,19 @@ const Admin = () => {
                   </span>
                 </Button>
               )}
-              <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
-              <Badge variant="outline" className="text-xs capitalize">{role}</Badge>
+              <span className="text-sm text-muted-foreground hidden md:inline truncate max-w-[150px]">{user?.email}</span>
+              <Badge variant="outline" className="text-xs capitalize hidden sm:inline-flex">{role}</Badge>
               <Button variant="ghost" size="icon" onClick={signOut}>
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </header>
 
-          <main className="flex-1 p-4 md:p-6 overflow-auto">
+          <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
             {activeTab === "dashboard" && <AdminDashboard />}
             {activeTab === "jobs" && <PrintJobsTable />}
+            {activeTab === "service-requests" && <ServiceRequestsTable />}
+            {activeTab === "services" && <ServicesManagement />}
             {activeTab === "users" && <UserManagement token={getToken()} />}
             {activeTab === "settings" && <AdminSettings />}
             {activeTab === "activity" && <ActivityLogs />}
