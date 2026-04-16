@@ -1,11 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
-import { CalendarCheck, Loader2, Check, RefreshCw } from "lucide-react";
+import { CalendarCheck, Loader2, Check, RefreshCw, X, Plus, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveServices } from "@/hooks/useServices";
 import type { Service } from "@/hooks/useServices";
 import { createClient } from "@supabase/supabase-js";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 
 const db = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -18,12 +19,12 @@ const POLL_TIMEOUT = 60000;
 const BookingForm = () => {
   const { toast } = useToast();
   const { services, categories, loading: svcLoading } = useActiveServices();
-  const [form, setForm] = useState({ name: "", phone: "", service: "", details: "", branch: "eldoret" });
+  const [form, setForm] = useState({ name: "", phone: "", details: "", branch: "eldoret" });
+  const [selectedServices, setSelectedServices] = useState<Service[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  // Payment state (for pay_first services)
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  // Payment state
   const [paymentStep, setPaymentStep] = useState<"form" | "payment" | "done">("form");
   const [paying, setPaying] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "pending" | "success" | "failed">("idle");
@@ -42,10 +43,25 @@ const BookingForm = () => {
     };
   }, []);
 
-  const handleServiceChange = (serviceName: string) => {
-    setForm((p) => ({ ...p, service: serviceName }));
-    const svc = services.find((s) => s.name === serviceName) || null;
-    setSelectedService(svc);
+  const totalPrice = selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
+  const payFirstServices = selectedServices.filter((s) => s.payment_timing === "pay_first");
+  const payAfterServices = selectedServices.filter((s) => s.payment_timing === "pay_after");
+  const payFirstTotal = payFirstServices.reduce((sum, s) => sum + (s.price || 0), 0);
+  const hasPayFirst = payFirstServices.length > 0;
+
+  const addService = (serviceName: string) => {
+    if (!serviceName) return;
+    const svc = services.find((s) => s.name === serviceName);
+    if (!svc) return;
+    if (selectedServices.find((s) => s.id === svc.id)) {
+      toast({ title: "Service already added", variant: "destructive" });
+      return;
+    }
+    setSelectedServices((prev) => [...prev, svc]);
+  };
+
+  const removeService = (id: string) => {
+    setSelectedServices((prev) => prev.filter((s) => s.id !== id));
   };
 
   const stopPolling = useCallback(() => {
@@ -96,8 +112,7 @@ const BookingForm = () => {
           setPaying(false);
           setReceipt(data.receipt || null);
           toast({ title: "Payment successful ✅", description: `Receipt: ${data.receipt || "Confirmed"}` });
-          // Now save service request
-          await saveServiceRequest(data.receipt || null);
+          await saveAllRequests(data.receipt || null);
           return;
         }
         if (data.status === "failed") {
@@ -120,9 +135,9 @@ const BookingForm = () => {
     }
 
     const formatted = formatPhone(form.phone);
-    const amount = selectedService?.price || 0;
+    const amount = payFirstTotal;
     if (amount < 1) {
-      toast({ title: "Invalid service price", variant: "destructive" });
+      toast({ title: "Invalid payment amount", variant: "destructive" });
       return;
     }
 
@@ -160,21 +175,22 @@ const BookingForm = () => {
     }
   };
 
-  const saveServiceRequest = async (paymentRef: string | null) => {
+  const saveAllRequests = async (paymentRef: string | null) => {
     try {
-      const { error } = await db.from("service_requests").insert({
-        service_id: selectedService?.id || null,
-        service_name: form.service,
+      const rows = selectedServices.map((svc) => ({
+        service_id: svc.id,
+        service_name: svc.name,
         customer_name: form.name,
         customer_phone: form.phone,
         customer_email: null,
         branch: form.branch,
         details: form.details || null,
-        price: selectedService?.price || 0,
-        paid: !!paymentRef,
-        payment_method: paymentRef ? "mpesa" : null,
-        payment_reference: paymentRef,
-      });
+        price: svc.price || 0,
+        paid: svc.payment_timing === "pay_first" ? !!paymentRef : false,
+        payment_method: svc.payment_timing === "pay_first" && paymentRef ? "mpesa" : null,
+        payment_reference: svc.payment_timing === "pay_first" ? paymentRef : null,
+      }));
+      const { error } = await db.from("service_requests").insert(rows);
       if (error) throw error;
       setPaymentStep("done");
       setSubmitted(true);
@@ -185,27 +201,25 @@ const BookingForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.phone || !form.service) {
-      toast({ title: "Please fill in all required fields", variant: "destructive" });
+    if (!form.name || !form.phone || selectedServices.length === 0) {
+      toast({ title: "Please fill in all required fields and select at least one service", variant: "destructive" });
       return;
     }
 
-    // If pay_first, show payment step
-    if (selectedService?.payment_timing === "pay_first") {
+    if (hasPayFirst) {
       setPaymentStep("payment");
       return;
     }
 
-    // pay_after: submit directly
     setSubmitting(true);
-    await saveServiceRequest(null);
+    await saveAllRequests(null);
     setSubmitting(false);
   };
 
   const reset = () => {
     stopPolling();
-    setForm({ name: "", phone: "", service: "", details: "", branch: "eldoret" });
-    setSelectedService(null);
+    setForm({ name: "", phone: "", details: "", branch: "eldoret" });
+    setSelectedServices([]);
     setPaymentStep("form");
     setPaying(false);
     setPaymentStatus("idle");
@@ -222,6 +236,9 @@ const BookingForm = () => {
     services: services.filter((s) => s.category_name === cat.name),
   })).filter((g) => g.services.length > 0);
 
+  // Check which services need details
+  const servicesNeedingDetails = selectedServices.filter((s) => s.requires_details);
+
   if (submitted) {
     return (
       <section id="booking" className="py-16 md:py-20">
@@ -232,7 +249,7 @@ const BookingForm = () => {
             </div>
             <h3 className="text-xl font-bold text-foreground">Service Request Submitted!</h3>
             <p className="text-muted-foreground">
-              We've received your request for <strong>{form.service}</strong>.
+              We've received your request for <strong>{selectedServices.map((s) => s.name).join(", ")}</strong>.
               {receipt && <><br />Payment receipt: <strong>{receipt}</strong></>}
             </p>
             <p className="text-sm text-muted-foreground">Our team will attend to your request shortly.</p>
@@ -259,7 +276,7 @@ const BookingForm = () => {
             Book a <span className="text-primary">Service</span>
           </h2>
           <p className="text-muted-foreground">
-            Need help with a complex task? Request a service and we'll guide you through it.
+            Select one or more services. You can combine multiple services in a single request.
           </p>
         </motion.div>
 
@@ -295,38 +312,88 @@ const BookingForm = () => {
                 </div>
               </div>
 
+              {/* Multi-service selector */}
               <div>
-                <label className="block text-sm font-semibold mb-2">Service Required *</label>
+                <label className="block text-sm font-semibold mb-2">Services Required *</label>
                 {svcLoading ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground py-3">
                     <Loader2 className="h-4 w-4 animate-spin" /> Loading services...
                   </div>
                 ) : (
                   <select
-                    value={form.service}
-                    onChange={(e) => handleServiceChange(e.target.value)}
+                    value=""
+                    onChange={(e) => addService(e.target.value)}
                     className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
-                    <option value="">Select a service...</option>
+                    <option value="">+ Add a service...</option>
                     {groupedServices.map((group) => (
                       <optgroup key={group.id} label={group.name}>
                         {group.services.map((svc) => (
-                          <option key={svc.id} value={svc.name}>
+                          <option
+                            key={svc.id}
+                            value={svc.name}
+                            disabled={!!selectedServices.find((s) => s.id === svc.id)}
+                          >
                             {svc.name} — KES {svc.price}
+                            {selectedServices.find((s) => s.id === svc.id) ? " ✓" : ""}
                           </option>
                         ))}
                       </optgroup>
                     ))}
                   </select>
                 )}
-                {selectedService && (
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                    <span className="bg-primary/10 text-primary px-2 py-1 rounded">
-                      KES {selectedService.price}
-                    </span>
-                    <span className={`px-2 py-1 rounded ${selectedService.payment_timing === "pay_first" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
-                      {selectedService.payment_timing === "pay_first" ? "Pay Before Service (M-Pesa)" : "Pay After Service"}
-                    </span>
+
+                {/* Selected services chips */}
+                {selectedServices.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {selectedServices.map((svc) => (
+                      <div key={svc.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{svc.name}</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <Badge variant="outline" className="text-xs">KES {svc.price}</Badge>
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${svc.payment_timing === "pay_first" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-emerald-50 text-emerald-700 border-emerald-200"}`}
+                            >
+                              {svc.payment_timing === "pay_first" ? "Pay First" : "Pay After"}
+                            </Badge>
+                            {svc.requires_details && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                <Info className="h-3 w-3 mr-0.5" /> {svc.detail_hint || "Details needed"}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeService(svc.id)}
+                          className="ml-2 p-1 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Price summary */}
+                    <div className="bg-primary/5 rounded-lg px-3 py-2 text-sm">
+                      <div className="flex justify-between font-semibold">
+                        <span>Total ({selectedServices.length} service{selectedServices.length > 1 ? "s" : ""})</span>
+                        <span>KES {totalPrice.toLocaleString()}</span>
+                      </div>
+                      {hasPayFirst && payAfterServices.length > 0 && (
+                        <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                          <div className="flex justify-between">
+                            <span>Pay now (M-Pesa):</span>
+                            <span>KES {payFirstTotal.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Pay after service:</span>
+                            <span>KES {(totalPrice - payFirstTotal).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -352,46 +419,73 @@ const BookingForm = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Additional Details</label>
+                <label className="block text-sm font-semibold mb-2">
+                  Additional Details
+                  {servicesNeedingDetails.length > 0 && (
+                    <span className="text-xs font-normal text-amber-600 ml-1">
+                      — {servicesNeedingDetails.map((s) => s.detail_hint || s.name).join("; ")}. Include what you know; our team will contact you for anything missing.
+                    </span>
+                  )}
+                </label>
                 <textarea
                   value={form.details}
                   onChange={(e) => setForm((p) => ({ ...p, details: e.target.value }))}
                   rows={3}
-                  maxLength={500}
+                  maxLength={1000}
                   className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-                  placeholder="Tell us more about what you need..."
+                  placeholder={
+                    servicesNeedingDetails.length > 0
+                      ? "Provide any details you have (KRA PIN, ID number, etc). Don't worry if you're unsure — our team will reach out."
+                      : "Tell us more about what you need..."
+                  }
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Don't have all the details? No worries — submit your request and our team will contact you to gather any missing information.
+                </p>
               </div>
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || selectedServices.length === 0}
                 className="w-full rounded-lg bg-primary py-3.5 font-semibold text-primary-foreground transition-all hover:brightness-110 shadow-md disabled:opacity-50"
               >
                 {submitting ? (
                   <span className="flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</span>
-                ) : selectedService?.payment_timing === "pay_first" ? (
-                  `Proceed to Pay KES ${selectedService.price}`
+                ) : hasPayFirst ? (
+                  `Proceed to Pay KES ${payFirstTotal.toLocaleString()}`
                 ) : (
-                  "Submit Service Request"
+                  `Submit ${selectedServices.length} Service Request${selectedServices.length > 1 ? "s" : ""}`
                 )}
               </button>
             </form>
           )}
 
-          {paymentStep === "payment" && selectedService && (
+          {paymentStep === "payment" && (
             <div className="space-y-6">
               <div className="text-center">
                 <h3 className="text-lg font-bold text-foreground mb-1">M-Pesa Payment Required</h3>
                 <p className="text-muted-foreground text-sm">
-                  Pay <strong>KES {selectedService.price}</strong> for <strong>{selectedService.name}</strong>
+                  Pay <strong>KES {payFirstTotal.toLocaleString()}</strong> for {payFirstServices.length} service{payFirstServices.length > 1 ? "s" : ""} that require upfront payment
                 </p>
               </div>
 
-              <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-1">
-                <p><span className="text-muted-foreground">Service:</span> {selectedService.name}</p>
-                <p><span className="text-muted-foreground">Amount:</span> KES {selectedService.price}</p>
-                <p><span className="text-muted-foreground">Phone:</span> {form.phone}</p>
+              <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-2">
+                {payFirstServices.map((svc) => (
+                  <div key={svc.id} className="flex justify-between">
+                    <span>{svc.name}</span>
+                    <span className="font-medium">KES {svc.price}</span>
+                  </div>
+                ))}
+                <div className="border-t border-border pt-1 flex justify-between font-bold">
+                  <span>Total</span>
+                  <span>KES {payFirstTotal.toLocaleString()}</span>
+                </div>
+                <p className="text-xs text-muted-foreground"><span className="text-muted-foreground">Phone:</span> {form.phone}</p>
+                {payAfterServices.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    + {payAfterServices.length} service{payAfterServices.length > 1 ? "s" : ""} (KES {(totalPrice - payFirstTotal).toLocaleString()}) to pay after completion
+                  </p>
+                )}
               </div>
 
               {paymentStatus === "idle" && (
@@ -399,7 +493,7 @@ const BookingForm = () => {
                   onClick={triggerPayment}
                   className="w-full rounded-lg bg-primary py-3.5 font-semibold text-primary-foreground hover:brightness-110 shadow-md"
                 >
-                  Pay KES {selectedService.price} via M-Pesa
+                  Pay KES {payFirstTotal.toLocaleString()} via M-Pesa
                 </button>
               )}
 

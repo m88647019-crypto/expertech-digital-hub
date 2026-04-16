@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  LayoutDashboard, FileText, Users, Settings, LogOut, Menu, Clock, Bell, Briefcase, ClipboardList
+  LayoutDashboard, FileText, Users, Settings, LogOut, Menu, Clock, Bell, Briefcase, ClipboardList, BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,11 +17,13 @@ import AdminSettings from "@/components/admin/AdminSettings";
 import ActivityLogs from "@/components/admin/ActivityLogs";
 import ServicesManagement from "@/components/admin/ServicesManagement";
 import ServiceRequestsTable from "@/components/admin/ServiceRequestsTable";
+import ReportsPanel from "@/components/admin/ReportsPanel";
 
 const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "jobs", label: "Print Jobs", icon: FileText },
   { key: "service-requests", label: "Service Requests", icon: ClipboardList },
+  { key: "reports", label: "Reports", icon: BarChart3 },
   { key: "services", label: "Manage Services", icon: Briefcase, adminOnly: true },
   { key: "users", label: "Users", icon: Users, adminOnly: true },
   { key: "settings", label: "Settings", icon: Settings, adminOnly: true },
@@ -119,6 +121,7 @@ const Admin = () => {
             {activeTab === "dashboard" && <AdminDashboard />}
             {activeTab === "jobs" && <PrintJobsTable />}
             {activeTab === "service-requests" && <ServiceRequestsTable />}
+            {activeTab === "reports" && <ReportsPanel />}
             {activeTab === "services" && <ServicesManagement />}
             {activeTab === "users" && <UserManagement token={getToken()} />}
             {activeTab === "settings" && <AdminSettings />}

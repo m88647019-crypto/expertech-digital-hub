@@ -42,6 +42,8 @@ export default function ServicesManagement() {
   const [svcPrice, setSvcPrice] = useState("0");
   const [svcTiming, setSvcTiming] = useState<"pay_first" | "pay_after">("pay_after");
   const [svcCatId, setSvcCatId] = useState("");
+  const [svcRequiresDetails, setSvcRequiresDetails] = useState(false);
+  const [svcDetailHint, setSvcDetailHint] = useState("");
   const [saving, setSaving] = useState(false);
 
   const openCatDialog = (cat?: ServiceCategory) => {
@@ -91,6 +93,8 @@ export default function ServicesManagement() {
       setSvcPrice(svc.price?.toString() || "0");
       setSvcTiming(svc.payment_timing);
       setSvcCatId(svc.category_id || "");
+      setSvcRequiresDetails(svc.requires_details || false);
+      setSvcDetailHint(svc.detail_hint || "");
     } else {
       setEditSvc(null);
       setSvcName("");
@@ -98,6 +102,8 @@ export default function ServicesManagement() {
       setSvcPrice("0");
       setSvcTiming("pay_after");
       setSvcCatId(categories[0]?.id || "");
+      setSvcRequiresDetails(false);
+      setSvcDetailHint("");
     }
     setSvcDialog(true);
   };
@@ -111,6 +117,8 @@ export default function ServicesManagement() {
       price: parseFloat(svcPrice) || 0,
       payment_timing: svcTiming,
       category_id: svcCatId || null,
+      requires_details: svcRequiresDetails,
+      detail_hint: svcDetailHint || null,
     };
     if (editSvc) {
       await db.from("services").update(payload).eq("id", editSvc.id);
@@ -157,15 +165,18 @@ export default function ServicesManagement() {
               <Plus className="h-4 w-4 mr-1" /> Add Service
             </Button>
           </div>
-          <Card>
+
+          {/* Desktop table */}
+          <Card className="hidden md:block">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Service</TableHead>
-                    <TableHead className="hidden sm:table-cell">Category</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead>Price (KES)</TableHead>
-                    <TableHead className="hidden sm:table-cell">Payment</TableHead>
+                    <TableHead>Payment</TableHead>
+                    <TableHead>Details?</TableHead>
                     <TableHead>Active</TableHead>
                     <TableHead className="w-24">Actions</TableHead>
                   </TableRow>
@@ -176,14 +187,20 @@ export default function ServicesManagement() {
                       <TableCell>
                         <p className="font-medium text-sm">{svc.name}</p>
                         {svc.description && <p className="text-xs text-muted-foreground truncate max-w-[200px]">{svc.description}</p>}
-                        <p className="text-xs text-muted-foreground sm:hidden">{getCatName(svc.category_id)}</p>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">{getCatName(svc.category_id)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{getCatName(svc.category_id)}</TableCell>
                       <TableCell className="font-medium">{svc.price}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
+                      <TableCell>
                         <Badge variant={svc.payment_timing === "pay_first" ? "default" : "outline"} className="text-xs">
                           {svc.payment_timing === "pay_first" ? "Pay First" : "Pay After"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {svc.requires_details ? (
+                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Yes</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Switch checked={svc.is_active} onCheckedChange={() => toggleSvcActive(svc)} />
@@ -202,7 +219,7 @@ export default function ServicesManagement() {
                   ))}
                   {services.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No services yet. Add your first service above.
                       </TableCell>
                     </TableRow>
@@ -211,6 +228,41 @@ export default function ServicesManagement() {
               </Table>
             </div>
           </Card>
+
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {services.map((svc) => (
+              <Card key={svc.id} className="p-4 space-y-2">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-sm">{svc.name}</p>
+                    <p className="text-xs text-muted-foreground">{getCatName(svc.category_id)}</p>
+                  </div>
+                  <Switch checked={svc.is_active} onCheckedChange={() => toggleSvcActive(svc)} />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="text-xs">KES {svc.price}</Badge>
+                  <Badge variant={svc.payment_timing === "pay_first" ? "default" : "outline"} className="text-xs">
+                    {svc.payment_timing === "pay_first" ? "Pay First" : "Pay After"}
+                  </Badge>
+                  {svc.requires_details && (
+                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Details Required</Badge>
+                  )}
+                </div>
+                <div className="flex gap-1 justify-end">
+                  <Button variant="ghost" size="sm" onClick={() => openSvcDialog(svc)}>
+                    <Edit className="h-3.5 w-3.5 mr-1" /> Edit
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => deleteSvc(svc.id)}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                  </Button>
+                </div>
+              </Card>
+            ))}
+            {services.length === 0 && (
+              <Card className="p-8 text-center text-muted-foreground">No services yet.</Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="categories" className="space-y-4">
@@ -259,7 +311,7 @@ export default function ServicesManagement() {
 
       {/* Category Dialog */}
       <Dialog open={catDialog} onOpenChange={setCatDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editCat ? "Edit Category" : "Add Category"}</DialogTitle>
             <DialogDescription>{editCat ? "Update category details." : "Create a new service category."}</DialogDescription>
@@ -275,9 +327,9 @@ export default function ServicesManagement() {
               <p className="text-xs text-muted-foreground">Lucide icon name for public site display</p>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCatDialog(false)}>Cancel</Button>
-            <Button onClick={saveCat} disabled={saving}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setCatDialog(false)} className="w-full sm:w-auto">Cancel</Button>
+            <Button onClick={saveCat} disabled={saving} className="w-full sm:w-auto">
               {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Save
             </Button>
           </DialogFooter>
@@ -286,7 +338,7 @@ export default function ServicesManagement() {
 
       {/* Service Dialog */}
       <Dialog open={svcDialog} onOpenChange={setSvcDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editSvc ? "Edit Service" : "Add Service"}</DialogTitle>
             <DialogDescription>{editSvc ? "Update service details and pricing." : "Create a new service offering."}</DialogDescription>
@@ -327,10 +379,32 @@ export default function ServicesManagement() {
                 </Select>
               </div>
             </div>
+            <div className="space-y-2 border-t border-border pt-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Requires Customer Details</Label>
+                  <p className="text-xs text-muted-foreground">Toggle if this service needs specific info from the customer</p>
+                </div>
+                <Switch checked={svcRequiresDetails} onCheckedChange={setSvcRequiresDetails} />
+              </div>
+              {svcRequiresDetails && (
+                <div className="space-y-1">
+                  <Label>Detail Hint (shown to customer)</Label>
+                  <Input
+                    value={svcDetailHint}
+                    onChange={(e) => setSvcDetailHint(e.target.value)}
+                    placeholder="e.g. Please provide your KRA PIN"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This hint helps customers know what info to provide. If they don't have it, your team will contact them.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSvcDialog(false)}>Cancel</Button>
-            <Button onClick={saveSvc} disabled={saving}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setSvcDialog(false)} className="w-full sm:w-auto">Cancel</Button>
+            <Button onClick={saveSvc} disabled={saving} className="w-full sm:w-auto">
               {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Save
             </Button>
           </DialogFooter>

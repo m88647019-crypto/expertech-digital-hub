@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// Use untyped client for tables not in generated types
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const db = createClient(supabaseUrl, supabaseKey);
@@ -23,6 +22,8 @@ export interface Service {
   payment_timing: "pay_first" | "pay_after";
   is_active: boolean;
   sort_order: number;
+  requires_details: boolean;
+  detail_hint: string | null;
 }
 
 export interface ServiceRequest {
@@ -59,7 +60,6 @@ export function useServiceCategories() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
   return { categories, loading, refetch: fetchData };
 }
 
@@ -78,7 +78,6 @@ export function useServicesAdmin() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
   return { services, loading, refetch: fetchData };
 }
 
@@ -121,7 +120,6 @@ export function useServiceRequests() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Realtime
   useEffect(() => {
     const channel = db
       .channel("service-requests-realtime")
