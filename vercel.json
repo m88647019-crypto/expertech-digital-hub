@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/uploadFile", "destination": "/api/uploadFile" },
+    { "source": "/api/uploadFile", "destination": "/api?route=upload" },
     { "source": "/api/stkPush", "destination": "/api?route=stkPush" },
     { "source": "/api/checkStatus", "destination": "/api?route=checkStatus" },
     { "source": "/api/mpesaCallback", "destination": "/api?route=mpesaCallback" },

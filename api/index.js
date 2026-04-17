@@ -6,10 +6,44 @@ import { withAuth } from "../lib/auth.js";
 // Consolidated API handler — all routes via ?route= query param
 // ============================================================
 
+export const config = {
+  api: { bodyParser: false },
+};
+
+// Read raw request body
+async function readRawBody(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  return Buffer.concat(chunks);
+}
+
+// Parse JSON body manually (since bodyParser is disabled)
+async function parseJsonBody(req) {
+  if (req.body && typeof req.body === "object") return req.body;
+  try {
+    const buf = await readRawBody(req);
+    if (!buf.length) return {};
+    req.rawBody = buf;
+    return JSON.parse(buf.toString("utf8"));
+  } catch {
+    return {};
+  }
+}
+
 export default async function handler(req, res) {
   const route = req.query?.route || "";
 
+  // For JSON routes, pre-parse body so handlers can use req.body
+  if (req.method !== "GET" && req.method !== "HEAD" && route !== "upload") {
+    const ct = req.headers["content-type"] || "";
+    if (ct.includes("application/json") || ct === "") {
+      req.body = await parseJsonBody(req);
+    }
+  }
+
   switch (route) {
+    case "upload":
+      return handleUpload(req, res);
     case "stkPush":
       return handleStkPush(req, res);
     case "checkStatus":
@@ -39,6 +73,83 @@ export default async function handler(req, res) {
     default:
       return res.status(404).json({ error: `Unknown route: ${route}` });
   }
+}
+
+// ============================================================
+// File Upload (multipart/form-data)
+// ============================================================
+async function handleUpload(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+  try {
+    const contentType = req.headers["content-type"] || "";
+    if (!contentType.includes("multipart/form-data")) {
+      return res.status(400).json({ error: "Expected multipart/form-data" });
+    }
+    const buffer = await readRawBody(req);
+    const boundary = contentType.split("boundary=")[1];
+    if (!boundary) return res.status(400).json({ error: "Missing boundary" });
+
+    const parts = parseMultipart(buffer, boundary);
+    const checkoutRequestID = parts.fields?.checkoutRequestID;
+    const file = parts.files?.file;
+
+    if (!checkoutRequestID || !file) {
+      return res.status(400).json({ error: "Missing checkoutRequestID or file" });
+    }
+
+    const filePath = `uploads/${checkoutRequestID}/${file.filename}`;
+    const { error } = await supabaseAdmin.storage
+      .from("uploads")
+      .upload(filePath, file.data, {
+        contentType: file.contentType,
+        upsert: true,
+      });
+
+    if (error) {
+      console.error("Upload error:", error);
+      return res.status(500).json({ error: "Upload failed", details: error.message });
+    }
+    return res.status(200).json({ success: true, filePath });
+  } catch (err) {
+    console.error("Upload handler error:", err);
+    return res.status(500).json({ error: "Server error", details: err.message });
+  }
+}
+
+function parseMultipart(buffer, boundary) {
+  const result = { fields: {}, files: {} };
+  const boundaryBytes = Buffer.from(`--${boundary}`);
+  const parts = [];
+  let start = 0;
+  while (true) {
+    const idx = buffer.indexOf(boundaryBytes, start);
+    if (idx === -1) break;
+    if (start > 0) parts.push(buffer.slice(start, idx - 2));
+    start = idx + boundaryBytes.length + 2;
+  }
+  for (const part of parts) {
+    const headerEnd = part.indexOf("\r\n\r\n");
+    if (headerEnd === -1) continue;
+    const headers = part.slice(0, headerEnd).toString();
+    const body = part.slice(headerEnd + 4);
+    const nameMatch = headers.match(/name="([^"]+)"/);
+    const filenameMatch = headers.match(/filename="([^"]+)"/);
+    const contentTypeMatch = headers.match(/Content-Type:\s*(.+)/i);
+    if (!nameMatch) continue;
+    const name = nameMatch[1];
+    if (filenameMatch) {
+      result.files[name] = {
+        filename: filenameMatch[1],
+        data: body,
+        contentType: contentTypeMatch ? contentTypeMatch[1].trim() : "application/octet-stream",
+      };
+    } else {
+      result.fields[name] = body.toString().trim();
+    }
+  }
+  return result;
 }
 
 // ============================================================
