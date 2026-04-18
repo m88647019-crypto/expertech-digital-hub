@@ -21,6 +21,8 @@ const BookingForm = () => {
   const { services, categories, loading: svcLoading } = useActiveServices();
   const [form, setForm] = useState({ name: "", phone: "", details: "", branch: "eldoret" });
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
+  // Per-service field values: { [serviceId]: { [fieldLabel]: value } }
+  const [fieldValues, setFieldValues] = useState<Record<string, Record<string, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -62,6 +64,17 @@ const BookingForm = () => {
 
   const removeService = (id: string) => {
     setSelectedServices((prev) => prev.filter((s) => s.id !== id));
+    setFieldValues((prev) => {
+      const { [id]: _omit, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  const setFieldValue = (serviceId: string, label: string, value: string) => {
+    setFieldValues((prev) => ({
+      ...prev,
+      [serviceId]: { ...(prev[serviceId] || {}), [label]: value },
+    }));
   };
 
   const stopPolling = useCallback(() => {
@@ -175,6 +188,19 @@ const BookingForm = () => {
     }
   };
 
+  const buildDetailsForService = (svc: Service): string | null => {
+    const parts: string[] = [];
+    const fields = Array.isArray(svc.required_fields) ? svc.required_fields : [];
+    const vals = fieldValues[svc.id] || {};
+    fields.forEach((f) => {
+      const v = (vals[f.label] || "").trim();
+      if (v) parts.push(`${f.label}: ${v}`);
+      else if (f.required !== false) parts.push(`${f.label}: (not provided)`);
+    });
+    if (form.details.trim()) parts.push(`Notes: ${form.details.trim()}`);
+    return parts.length > 0 ? parts.join("\n") : null;
+  };
+
   const saveAllRequests = async (paymentRef: string | null) => {
     try {
       const rows = selectedServices.map((svc) => ({
@@ -184,7 +210,7 @@ const BookingForm = () => {
         customer_phone: form.phone,
         customer_email: null,
         branch: form.branch,
-        details: form.details || null,
+        details: buildDetailsForService(svc),
         price: svc.price || 0,
         paid: svc.payment_timing === "pay_first" ? !!paymentRef : false,
         payment_method: svc.payment_timing === "pay_first" && paymentRef ? "mpesa" : null,
@@ -397,6 +423,47 @@ const BookingForm = () => {
                   </div>
                 )}
               </div>
+
+              {/* Dynamic per-service required fields */}
+              {selectedServices.some((s) => Array.isArray(s.required_fields) && s.required_fields.length > 0) && (
+                <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold">Service-specific details</p>
+                      <p className="text-xs text-muted-foreground">
+                        Fill in what you know. Leave blank if unsure — our team will reach out.
+                      </p>
+                    </div>
+                  </div>
+                  {selectedServices
+                    .filter((s) => Array.isArray(s.required_fields) && s.required_fields.length > 0)
+                    .map((svc) => (
+                      <div key={svc.id} className="space-y-2 border-t border-border pt-3 first:border-t-0 first:pt-0">
+                        <p className="text-sm font-medium">{svc.name}</p>
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          {(svc.required_fields || []).map((f) => (
+                            <div key={f.label}>
+                              <label className="block text-xs font-medium mb-1">
+                                {f.label}
+                                {f.required !== false && <span className="text-destructive ml-0.5">*</span>}
+                              </label>
+                              <input
+                                type="text"
+                                value={(fieldValues[svc.id] || {})[f.label] || ""}
+                                onChange={(e) => setFieldValue(svc.id, f.label, e.target.value)}
+                                placeholder={f.hint || ""}
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                maxLength={200}
+                              />
+                              {f.hint && <p className="text-[10px] text-muted-foreground mt-1">{f.hint}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-semibold mb-2">Preferred Branch</label>

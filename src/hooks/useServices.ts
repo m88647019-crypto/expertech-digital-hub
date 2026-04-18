@@ -13,6 +13,12 @@ export interface ServiceCategory {
   is_active: boolean;
 }
 
+export interface RequiredField {
+  label: string;
+  hint?: string;
+  required?: boolean;
+}
+
 export interface Service {
   id: string;
   category_id: string | null;
@@ -24,6 +30,7 @@ export interface Service {
   sort_order: number;
   requires_details: boolean;
   detail_hint: string | null;
+  required_fields?: RequiredField[] | null;
 }
 
 export interface ServiceRequest {

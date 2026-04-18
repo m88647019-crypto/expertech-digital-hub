@@ -102,7 +102,10 @@ export default function PrintJobsTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-foreground">Print Jobs</h2>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Print Jobs</h2>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">All customer uploads, payments and print statuses.</p>
+        </div>
         <div className="flex flex-wrap gap-2">
           {selected.size > 0 && (
             <>

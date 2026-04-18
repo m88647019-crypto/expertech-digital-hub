@@ -121,10 +121,13 @@ export default function ReportsPanel() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-foreground">Reports & Analytics</h2>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Reports & Analytics</h2>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">Track performance, revenue and customer activity.</p>
+        </div>
         <div className="flex gap-2">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="w-36 bg-[hsl(var(--admin-surface))] border-[hsl(var(--admin-border))] text-slate-100">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -134,59 +137,61 @@ export default function ReportsPanel() {
               <SelectItem value="90">Last 90 days</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={fetchData}><RefreshCw className="h-4 w-4" /></Button>
+          <Button variant="outline" size="icon" onClick={fetchData} className="border-[hsl(var(--admin-border))] text-slate-200">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard icon={ClipboardList} label="Service Requests" value={stats.totalRequests} color="text-primary" />
-        <StatCard icon={FileText} label="Print Jobs" value={stats.totalJobs} color="text-blue-600" />
-        <StatCard icon={DollarSign} label="Revenue (Paid)" value={`KES ${stats.totalRevenue.toLocaleString()}`} color="text-emerald-600" />
-        <StatCard icon={DollarSign} label="Pending Revenue" value={`KES ${stats.pendingRevenue.toLocaleString()}`} color="text-amber-600" />
+        <StatCard icon={ClipboardList} label="Service Requests" value={stats.totalRequests} tone="primary" />
+        <StatCard icon={FileText} label="Print Jobs" value={stats.totalJobs} tone="info" />
+        <StatCard icon={DollarSign} label="Revenue (Paid)" value={`KES ${stats.totalRevenue.toLocaleString()}`} tone="success" />
+        <StatCard icon={DollarSign} label="Pending Revenue" value={`KES ${stats.pendingRevenue.toLocaleString()}`} tone="warning" />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard icon={CheckCircle2} label="Completed" value={stats.completedRequests} color="text-emerald-600" />
-        <StatCard icon={Clock} label="Pending" value={stats.pendingRequests} color="text-amber-600" />
-        <StatCard icon={XCircle} label="Cancelled" value={stats.cancelledRequests} color="text-red-600" />
-        <StatCard icon={Users} label="Unique Customers" value={stats.uniqueCustomers} color="text-purple-600" />
+        <StatCard icon={CheckCircle2} label="Completed" value={stats.completedRequests} tone="success" />
+        <StatCard icon={Clock} label="Pending" value={stats.pendingRequests} tone="warning" />
+        <StatCard icon={XCircle} label="Cancelled" value={stats.cancelledRequests} tone="danger" />
+        <StatCard icon={Users} label="Unique Customers" value={stats.uniqueCustomers} tone="info" />
       </div>
 
       {/* Daily trend chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
+      <Card className="admin-surface border-0">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm sm:text-base flex items-center gap-2 text-slate-100">
             <BarChart3 className="h-4 w-4 text-primary" /> Daily Activity
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-end gap-1 h-32 overflow-x-auto pb-1">
+          <div className="flex items-end gap-1 h-36 overflow-x-auto pb-1">
             {stats.dailyTrend.map((d) => (
               <div key={d.date} className="flex flex-col items-center gap-0.5 min-w-[28px] flex-1">
-                <span className="text-[10px] font-medium text-foreground">{d.requests + d.jobs}</span>
+                <span className="text-[10px] font-medium text-slate-200">{d.requests + d.jobs}</span>
                 <div className="w-full flex flex-col gap-px" style={{ height: `${((d.requests + d.jobs) / maxDaily) * 100}%`, minHeight: 4 }}>
-                  <div className="flex-1 bg-primary/80 rounded-t-sm" style={{ flex: d.requests }} />
-                  {d.jobs > 0 && <div className="bg-blue-400/80 rounded-b-sm" style={{ flex: d.jobs }} />}
+                  <div className="flex-1 rounded-t-sm bg-gradient-to-t from-primary/60 to-primary" style={{ flex: d.requests }} />
+                  {d.jobs > 0 && <div className="rounded-b-sm bg-gradient-to-t from-sky-400/70 to-sky-300" style={{ flex: d.jobs }} />}
                 </div>
-                <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                <span className="text-[9px] text-slate-400 whitespace-nowrap">
                   {new Date(d.date).toLocaleDateString("en", { day: "numeric", month: "short" })}
                 </span>
               </div>
             ))}
           </div>
-          <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 bg-primary/80 rounded-sm" /> Requests</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 bg-blue-400/80 rounded-sm" /> Print Jobs</span>
+          <div className="flex gap-4 mt-3 text-xs text-slate-400">
+            <span className="flex items-center gap-1"><span className="w-3 h-3 bg-primary rounded-sm" /> Requests</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 bg-sky-300 rounded-sm" /> Print Jobs</span>
           </div>
         </CardContent>
       </Card>
 
       {/* Popular services & Branch split */}
       <div className="grid md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+        <Card className="admin-surface border-0">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2 text-slate-100">
               <TrendingUp className="h-4 w-4 text-primary" /> Popular Services
             </CardTitle>
           </CardHeader>
@@ -194,26 +199,24 @@ export default function ReportsPanel() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Service</TableHead>
-                    <TableHead className="text-right">Requests</TableHead>
-                    <TableHead className="text-right hidden sm:table-cell">Revenue</TableHead>
+                  <TableRow className="border-[hsl(var(--admin-border))]">
+                    <TableHead className="text-slate-300">Service</TableHead>
+                    <TableHead className="text-right text-slate-300">Requests</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell text-slate-300">Revenue</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {stats.popularServices.slice(0, 10).map((s) => (
-                    <TableRow key={s.name}>
-                      <TableCell className="text-sm font-medium">{s.name}</TableCell>
-                      <TableCell className="text-right">{s.count}</TableCell>
-                      <TableCell className="text-right hidden sm:table-cell text-muted-foreground">
+                    <TableRow key={s.name} className="border-[hsl(var(--admin-border))]">
+                      <TableCell className="text-sm font-medium text-slate-100">{s.name}</TableCell>
+                      <TableCell className="text-right text-slate-200">{s.count}</TableCell>
+                      <TableCell className="text-right hidden sm:table-cell text-slate-400">
                         KES {s.revenue.toLocaleString()}
                       </TableCell>
                     </TableRow>
                   ))}
                   {stats.popularServices.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-6">No data</TableCell>
-                    </TableRow>
+                    <TableRow><TableCell colSpan={3} className="text-center text-slate-400 py-6">No data</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -221,25 +224,25 @@ export default function ReportsPanel() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Branch Breakdown</CardTitle>
+        <Card className="admin-surface border-0">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm sm:text-base text-slate-100">Branch Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
             {Object.keys(stats.branchCounts).length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">No data</p>
+              <p className="text-sm text-slate-400 text-center py-6">No data</p>
             ) : (
               <div className="space-y-3">
                 {Object.entries(stats.branchCounts).map(([branch, count]) => {
                   const pct = stats.totalRequests > 0 ? Math.round((count / stats.totalRequests) * 100) : 0;
                   return (
                     <div key={branch}>
-                      <div className="flex justify-between text-sm mb-1">
+                      <div className="flex justify-between text-sm mb-1 text-slate-200">
                         <span className="capitalize font-medium">{branch}</span>
-                        <span className="text-muted-foreground">{count} ({pct}%)</span>
+                        <span className="text-slate-400">{count} ({pct}%)</span>
                       </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      <div className="h-2 bg-[hsl(var(--admin-surface-2))] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-primary to-sky-400 transition-all" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -253,14 +256,29 @@ export default function ReportsPanel() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
+const TONE_CLASS: Record<string, string> = {
+  primary: "stat-grad-primary",
+  success: "stat-grad-success",
+  warning: "stat-grad-warning",
+  danger:  "stat-grad-danger",
+  info:    "stat-grad-info",
+};
+const TONE_ICON: Record<string, string> = {
+  primary: "text-sky-300",
+  success: "text-emerald-300",
+  warning: "text-amber-300",
+  danger:  "text-rose-300",
+  info:    "text-violet-300",
+};
+
+function StatCard({ icon: Icon, label, value, tone = "primary" }: { icon: any; label: string; value: string | number; tone?: string }) {
   return (
-    <Card>
-      <CardContent className="p-3 sm:p-4 flex flex-col items-center text-center gap-1">
-        <Icon className={`h-5 w-5 ${color}`} />
-        <p className="text-lg sm:text-2xl font-bold text-foreground">{value}</p>
-        <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{label}</p>
-      </CardContent>
-    </Card>
+    <div className={`stat-card ${TONE_CLASS[tone]}`}>
+      <div className="flex items-center justify-between">
+        <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${TONE_ICON[tone]}`} />
+        <span className="text-[10px] uppercase tracking-wider text-slate-400 leading-tight text-right">{label}</span>
+      </div>
+      <p className="mt-2 text-base sm:text-2xl font-bold text-slate-50 tabular-nums">{value}</p>
+    </div>
   );
 }

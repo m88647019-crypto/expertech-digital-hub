@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useServiceCategories, useServicesAdmin } from "@/hooks/useServices";
-import type { Service, ServiceCategory } from "@/hooks/useServices";
+import type { Service, ServiceCategory, RequiredField } from "@/hooks/useServices";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -17,7 +18,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Trash2, Loader2, Edit, FolderPlus } from "lucide-react";
+import { Plus, Trash2, Loader2, Edit, FolderPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -44,6 +45,7 @@ export default function ServicesManagement() {
   const [svcCatId, setSvcCatId] = useState("");
   const [svcRequiresDetails, setSvcRequiresDetails] = useState(false);
   const [svcDetailHint, setSvcDetailHint] = useState("");
+  const [svcRequiredFields, setSvcRequiredFields] = useState<RequiredField[]>([]);
   const [saving, setSaving] = useState(false);
 
   const openCatDialog = (cat?: ServiceCategory) => {
@@ -95,6 +97,7 @@ export default function ServicesManagement() {
       setSvcCatId(svc.category_id || "");
       setSvcRequiresDetails(svc.requires_details || false);
       setSvcDetailHint(svc.detail_hint || "");
+      setSvcRequiredFields(Array.isArray(svc.required_fields) ? svc.required_fields : []);
     } else {
       setEditSvc(null);
       setSvcName("");
@@ -104,6 +107,7 @@ export default function ServicesManagement() {
       setSvcCatId(categories[0]?.id || "");
       setSvcRequiresDetails(false);
       setSvcDetailHint("");
+      setSvcRequiredFields([]);
     }
     setSvcDialog(true);
   };
@@ -111,14 +115,18 @@ export default function ServicesManagement() {
   const saveSvc = async () => {
     if (!svcName.trim()) return;
     setSaving(true);
+    const cleanedFields = svcRequiredFields
+      .map((f) => ({ label: (f.label || "").trim(), hint: (f.hint || "").trim(), required: !!f.required }))
+      .filter((f) => f.label.length > 0);
     const payload = {
       name: svcName,
       description: svcDesc || null,
       price: parseFloat(svcPrice) || 0,
       payment_timing: svcTiming,
       category_id: svcCatId || null,
-      requires_details: svcRequiresDetails,
+      requires_details: svcRequiresDetails || cleanedFields.length > 0,
       detail_hint: svcDetailHint || null,
+      required_fields: cleanedFields,
     };
     if (editSvc) {
       await db.from("services").update(payload).eq("id", editSvc.id);
@@ -130,6 +138,12 @@ export default function ServicesManagement() {
     setSaving(false);
     toast.success(editSvc ? "Service updated" : "Service created");
   };
+
+  const addField = () => setSvcRequiredFields((p) => [...p, { label: "", hint: "", required: true }]);
+  const updateField = (idx: number, patch: Partial<RequiredField>) =>
+    setSvcRequiredFields((p) => p.map((f, i) => (i === idx ? { ...f, ...patch } : f)));
+  const removeField = (idx: number) =>
+    setSvcRequiredFields((p) => p.filter((_, i) => i !== idx));
 
   const toggleSvcActive = async (svc: Service) => {
     await db.from("services").update({ is_active: !svc.is_active }).eq("id", svc.id);
@@ -151,7 +165,10 @@ export default function ServicesManagement() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-foreground">Services Management</h2>
+      <div>
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Services Management</h2>
+        <p className="text-xs sm:text-sm text-slate-400 mt-1">Define services, prices, payment timing and required customer details.</p>
+      </div>
 
       <Tabs defaultValue="services">
         <TabsList className="w-full sm:w-auto">
@@ -379,7 +396,7 @@ export default function ServicesManagement() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-2 border-t border-border pt-3">
+            <div className="space-y-3 border-t border-border pt-3">
               <div className="flex items-center justify-between">
                 <div>
                   <Label>Requires Customer Details</Label>
@@ -387,18 +404,75 @@ export default function ServicesManagement() {
                 </div>
                 <Switch checked={svcRequiresDetails} onCheckedChange={setSvcRequiresDetails} />
               </div>
+
               {svcRequiresDetails && (
-                <div className="space-y-1">
-                  <Label>Detail Hint (shown to customer)</Label>
-                  <Input
-                    value={svcDetailHint}
-                    onChange={(e) => setSvcDetailHint(e.target.value)}
-                    placeholder="e.g. Please provide your KRA PIN"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    This hint helps customers know what info to provide. If they don't have it, your team will contact them.
-                  </p>
-                </div>
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs">General hint (optional)</Label>
+                    <Input
+                      value={svcDetailHint}
+                      onChange={(e) => setSvcDetailHint(e.target.value)}
+                      placeholder="e.g. Please provide your KRA PIN"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Required fields from customer</Label>
+                      <Button type="button" size="sm" variant="outline" onClick={addField}>
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Add field
+                      </Button>
+                    </div>
+
+                    {svcRequiredFields.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">
+                        No specific fields. Customers will see one general "details" box.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {svcRequiredFields.map((f, i) => (
+                          <div key={i} className="rounded-lg border border-border bg-muted/30 p-2 space-y-2">
+                            <div className="flex items-start gap-2">
+                              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <Input
+                                  value={f.label}
+                                  onChange={(e) => updateField(i, { label: e.target.value })}
+                                  placeholder="Field label (e.g. KRA PIN)"
+                                  className="h-9"
+                                />
+                                <Input
+                                  value={f.hint || ""}
+                                  onChange={(e) => updateField(i, { hint: e.target.value })}
+                                  placeholder="Helper hint (optional)"
+                                  className="h-9"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 text-destructive flex-shrink-0"
+                                onClick={() => removeField(i)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                              <Checkbox
+                                checked={f.required !== false}
+                                onCheckedChange={(c) => updateField(i, { required: !!c })}
+                              />
+                              Required (customer must provide this)
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Add as many fields as needed. Customers can leave optional ones blank — your team will follow up on missing info.
+                    </p>
+                  </div>
+                </>
               )}
             </div>
           </div>

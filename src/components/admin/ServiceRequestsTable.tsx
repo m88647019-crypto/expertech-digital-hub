@@ -95,8 +95,11 @@ export default function ServiceRequestsTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-foreground">Service Requests</h2>
-        <Button variant="outline" size="sm" onClick={refetch}>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Service Requests</h2>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">Track, update and message customers about their requests.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={refetch} className="border-[hsl(var(--admin-border))] text-slate-200">
           <RefreshCw className="h-4 w-4 mr-1" /> Refresh
         </Button>
       </div>
@@ -284,7 +287,7 @@ export default function ServiceRequestsTable() {
               {detailReq.details && (
                 <div>
                   <Label className="text-xs text-muted-foreground">Customer Details</Label>
-                  <p className="text-sm bg-muted/50 p-2 rounded">{detailReq.details}</p>
+                  <p className="text-sm bg-muted/50 p-2 rounded whitespace-pre-line">{detailReq.details}</p>
                 </div>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

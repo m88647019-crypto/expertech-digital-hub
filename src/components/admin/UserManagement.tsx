@@ -113,8 +113,11 @@ export default function UserManagement({ token }: { token: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-foreground">User Management</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-100">User Management</h2>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">Add staff, set permissions and manage access.</p>
+        </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={fetchCashiers}>
             <RefreshCw className="h-4 w-4 mr-1" /> Refresh

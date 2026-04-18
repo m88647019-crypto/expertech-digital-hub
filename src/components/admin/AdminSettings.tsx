@@ -54,7 +54,10 @@ export default function AdminSettings() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <h2 className="text-xl font-bold text-foreground">Settings</h2>
+      <div>
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Settings</h2>
+        <p className="text-xs sm:text-sm text-slate-400 mt-1">Business configuration shown across your public site.</p>
+      </div>
 
       <Card>
         <CardHeader>

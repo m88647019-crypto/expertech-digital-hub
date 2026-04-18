@@ -42,6 +42,23 @@ html {
     --card-shadow: 0 4px 24px -4px hsl(214 72% 33% / 0.1);
     --card-shadow-hover: 0 8px 32px -4px hsl(214 72% 33% / 0.18);
 
+    /* Premium admin tokens */
+    --admin-bg: 222 47% 6%;
+    --admin-surface: 222 40% 9%;
+    --admin-surface-2: 222 38% 12%;
+    --admin-border: 222 30% 18%;
+    --admin-muted: 215 16% 65%;
+    --admin-accent: 214 90% 60%;
+    --gradient-admin-header: linear-gradient(90deg, hsl(222 47% 8%) 0%, hsl(222 40% 11%) 100%);
+    --gradient-admin-brand: linear-gradient(135deg, hsl(214 90% 58%), hsl(199 89% 55%));
+    --gradient-stat-primary: linear-gradient(135deg, hsl(214 90% 22% / 0.5), hsl(199 89% 30% / 0.25));
+    --gradient-stat-success: linear-gradient(135deg, hsl(160 75% 22% / 0.45), hsl(160 75% 30% / 0.2));
+    --gradient-stat-warning: linear-gradient(135deg, hsl(38 90% 25% / 0.45), hsl(38 90% 35% / 0.2));
+    --gradient-stat-danger:  linear-gradient(135deg, hsl(0 75% 25% / 0.45), hsl(0 75% 35% / 0.2));
+    --gradient-stat-info:    linear-gradient(135deg, hsl(260 70% 28% / 0.45), hsl(260 70% 38% / 0.2));
+    --shadow-admin-card: 0 1px 0 0 hsl(0 0% 100% / 0.04) inset, 0 8px 24px -12px hsl(0 0% 0% / 0.6);
+    --shadow-admin-glow: 0 0 0 1px hsl(214 90% 60% / 0.25), 0 12px 40px -12px hsl(214 90% 50% / 0.45);
+
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -92,20 +109,52 @@ html {
 }
 
 @layer utilities {
-  .hero-gradient {
-    background: var(--hero-gradient);
-  }
-
-  .card-shadow {
-    box-shadow: var(--card-shadow);
-  }
-
-  .card-shadow-hover {
-    box-shadow: var(--card-shadow-hover);
-  }
-
+  .hero-gradient { background: var(--hero-gradient); }
+  .card-shadow { box-shadow: var(--card-shadow); }
+  .card-shadow-hover { box-shadow: var(--card-shadow-hover); }
   .text-gradient {
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(135deg, hsl(214 72% 45%), hsl(38 92% 50%));
   }
+
+  /* ==== Premium admin utilities ==== */
+  .admin-shell {
+    background:
+      radial-gradient(1200px 600px at 0% -10%, hsl(214 90% 50% / 0.08), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, hsl(199 89% 55% / 0.06), transparent 60%),
+      hsl(var(--admin-bg));
+  }
+  .admin-surface {
+    background: hsl(var(--admin-surface));
+    border: 1px solid hsl(var(--admin-border));
+    box-shadow: var(--shadow-admin-card);
+  }
+  .admin-header {
+    background: var(--gradient-admin-header);
+    border-bottom: 1px solid hsl(var(--admin-border));
+    backdrop-filter: blur(8px);
+  }
+  .admin-brand-text {
+    background: var(--gradient-admin-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .stat-card {
+    @apply rounded-xl p-4 border;
+    border-color: hsl(var(--admin-border));
+    background: hsl(var(--admin-surface));
+    box-shadow: var(--shadow-admin-card);
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  .stat-card:hover {
+    transform: translateY(-2px);
+    border-color: hsl(var(--admin-accent) / 0.4);
+    box-shadow: var(--shadow-admin-glow);
+  }
+  .stat-grad-primary { background: var(--gradient-stat-primary), hsl(var(--admin-surface)); }
+  .stat-grad-success { background: var(--gradient-stat-success), hsl(var(--admin-surface)); }
+  .stat-grad-warning { background: var(--gradient-stat-warning), hsl(var(--admin-surface)); }
+  .stat-grad-danger  { background: var(--gradient-stat-danger),  hsl(var(--admin-surface)); }
+  .stat-grad-info    { background: var(--gradient-stat-info),    hsl(var(--admin-surface)); }
 }

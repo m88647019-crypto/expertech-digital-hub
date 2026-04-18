@@ -26,7 +26,10 @@ export default function ActivityLogs() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-foreground">Activity Logs</h2>
+      <div>
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Activity Logs</h2>
+        <p className="text-xs sm:text-sm text-slate-400 mt-1">Recent admin and system activity.</p>
+      </div>
       {logs.length === 0 ? (
         <Card><CardContent className="py-8 text-center text-muted-foreground">No activity logs yet</CardContent></Card>
       ) : (
