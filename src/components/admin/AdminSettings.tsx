@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Loader2, Save, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,18 +51,42 @@ export default function AdminSettings() {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
+  const showPrices = settings["show_prices_on_cards"] !== "false"; // default true
+
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Settings</h2>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1">Business configuration shown across your public site.</p>
+        <h2 className="text-xl sm:text-2xl font-bold admin-text">Settings</h2>
+        <p className="text-xs sm:text-sm admin-muted mt-1">Business configuration shown across your public site.</p>
       </div>
 
-      <Card>
+      <Card className="admin-surface border-0">
         <CardHeader>
-          <CardTitle className="text-base">Business Configuration</CardTitle>
+          <CardTitle className="text-base admin-text">Public Display</CardTitle>
+          <CardDescription>Control what visitors see on your public site.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-[hsl(var(--admin-border))] p-3">
+            <div>
+              <Label className="admin-text">Show prices on service cards</Label>
+              <p className="text-xs admin-muted mt-1">
+                When off, prices are hidden in the public services grid. The booking form
+                always shows prices so customers know what they'll pay.
+              </p>
+            </div>
+            <Switch
+              checked={showPrices}
+              onCheckedChange={(checked) => update("show_prices_on_cards", checked ? "true" : "false")}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="admin-surface border-0">
+        <CardHeader>
+          <CardTitle className="text-base admin-text">Business Configuration</CardTitle>
           <CardDescription>
             These settings are displayed on your public website — footer, WhatsApp button, and pricing.
           </CardDescription>
@@ -69,7 +94,7 @@ export default function AdminSettings() {
         <CardContent className="space-y-5">
           {SETTING_FIELDS.map((f) => (
             <div key={f.key} className="space-y-1">
-              <Label>{f.label}</Label>
+              <Label className="admin-text">{f.label}</Label>
               <Input
                 type={f.type || "text"}
                 placeholder={f.placeholder}
@@ -77,7 +102,7 @@ export default function AdminSettings() {
                 onChange={(e) => update(f.key, e.target.value)}
               />
               {f.description && (
-                <p className="text-xs text-muted-foreground">{f.description}</p>
+                <p className="text-xs admin-muted">{f.description}</p>
               )}
             </div>
           ))}

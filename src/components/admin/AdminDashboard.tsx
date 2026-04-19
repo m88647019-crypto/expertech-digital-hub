@@ -37,7 +37,6 @@ export default function AdminDashboard() {
         supabase.from("print_jobs").select("*").order("created_at", { ascending: false }).limit(5),
       ]);
 
-      // Build daily counts for last 7 days
       const { data: weekJobs } = await supabase
         .from("print_jobs")
         .select("created_at")
@@ -82,13 +81,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Dashboard</h2>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">Real-time overview of your print operation.</p>
-        </div>
-      </div>
-
       {/* Stats cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         <StatCard icon={Package}      label="Total Jobs"  value={stats.total}      tone="primary" />
@@ -99,86 +91,91 @@ export default function AdminDashboard() {
         <StatCard icon={XCircle}      label="Cancelled"   value={stats.cancelled}  tone="danger" />
       </div>
 
-      {/* Bar chart */}
-      <Card className="admin-surface border-0">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm sm:text-base text-slate-100">Uploads (Last 7 Days)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-end gap-2 h-36">
-            {stats.dailyCounts.map((d) => (
-              <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-xs font-medium text-slate-200">{d.count}</span>
-                <div
-                  className="w-full rounded-t-md min-h-[4px] transition-all bg-gradient-to-t from-primary/60 to-primary"
-                  style={{ height: `${(d.count / maxCount) * 100}%` }}
-                />
-                <span className="text-[10px] text-slate-400">
-                  {new Date(d.date).toLocaleDateString("en", { weekday: "short" })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent uploads */}
-      <Card className="admin-surface border-0">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm sm:text-base text-slate-100">Recent Uploads</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {stats.recentJobs.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-4">No jobs yet</p>
-          ) : (
-            <div className="divide-y divide-[hsl(var(--admin-border))]">
-              {stats.recentJobs.map((job) => (
-                <div key={job.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-100 truncate">{job.name || "Anonymous"}</p>
-                    <p className="text-xs text-slate-400 truncate">{job.phone || job.email || "No contact"}</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge className={STATUS_COLORS[job.status as JobStatus] || "bg-muted"}>
-                      {job.status}
-                    </Badge>
-                    <span className="text-xs text-slate-400 hidden sm:inline">
-                      {new Date(job.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
+      <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
+        {/* Bar chart */}
+        <Card className="admin-surface border-0">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm sm:text-base admin-text flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Uploads (Last 7 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-2 h-36">
+              {stats.dailyCounts.map((d) => (
+                <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
+                  <span className="text-xs font-medium admin-text">{d.count}</span>
+                  <div
+                    className="w-full rounded-t-md min-h-[4px] transition-all bg-primary/80"
+                    style={{ height: `${(d.count / maxCount) * 100}%` }}
+                  />
+                  <span className="text-[10px] admin-muted">
+                    {new Date(d.date).toLocaleDateString("en", { weekday: "short" })}
+                  </span>
                 </div>
               ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Recent uploads */}
+        <Card className="admin-surface border-0">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm sm:text-base admin-text flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-500" />
+              Recent Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats.recentJobs.length === 0 ? (
+              <p className="text-sm admin-muted text-center py-6">
+                No activity yet. Add a service or wait for the first upload to get started.
+              </p>
+            ) : (
+              <div className="divide-y divide-[hsl(var(--admin-border))]">
+                {stats.recentJobs.map((job) => (
+                  <div key={job.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium admin-text truncate">{job.name || "Anonymous"}</p>
+                      <p className="text-xs admin-muted truncate">{job.phone || job.email || "No contact"}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Badge className={STATUS_COLORS[job.status as JobStatus] || "bg-muted"}>
+                        {job.status}
+                      </Badge>
+                      <span className="text-xs admin-muted hidden sm:inline">
+                        {new Date(job.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
 
 const TONE_CLASS: Record<string, string> = {
-  primary: "stat-grad-primary",
-  success: "stat-grad-success",
-  warning: "stat-grad-warning",
-  danger:  "stat-grad-danger",
-  info:    "stat-grad-info",
-};
-const TONE_ICON: Record<string, string> = {
-  primary: "text-sky-300",
-  success: "text-emerald-300",
-  warning: "text-amber-300",
-  danger:  "text-rose-300",
-  info:    "text-violet-300",
+  primary: "tone-primary",
+  success: "tone-success",
+  warning: "tone-warning",
+  danger:  "tone-danger",
+  info:    "tone-info",
 };
 
 function StatCard({ icon: Icon, label, value, tone = "primary" }: { icon: any; label: string; value: number | string; tone?: string }) {
   return (
-    <div className={`stat-card ${TONE_CLASS[tone]}`}>
+    <div className="stat-card">
       <div className="flex items-center justify-between">
-        <Icon className={`h-5 w-5 ${TONE_ICON[tone]}`} />
-        <span className="text-[10px] uppercase tracking-wider text-slate-400">{label}</span>
+        <span className={`inline-flex items-center justify-center h-9 w-9 rounded-lg ${TONE_CLASS[tone]}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="text-[10px] uppercase tracking-wider admin-muted text-right leading-tight">{label}</span>
       </div>
-      <p className="mt-2 text-2xl sm:text-3xl font-bold text-slate-50 tabular-nums">{value}</p>
+      <p className="mt-3 text-2xl sm:text-3xl font-bold admin-text tabular-nums">{value}</p>
     </div>
   );
 }

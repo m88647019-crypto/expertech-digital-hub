@@ -29,7 +29,12 @@ interface ServiceRequest {
   paid: boolean;
   created_at: string;
   branch: string;
+  discount_amount?: number;
+  discount_approved?: boolean;
 }
+
+const netOf = (r: ServiceRequest) =>
+  Math.max(0, (Number(r.price) || 0) - (r.discount_approved ? Number(r.discount_amount || 0) : 0));
 
 interface PrintJob {
   id: string;
@@ -63,8 +68,11 @@ export default function ReportsPanel() {
   const stats = useMemo(() => {
     const totalRequests = requests.length;
     const totalJobs = printJobs.length;
-    const totalRevenue = requests.filter((r) => r.paid).reduce((s, r) => s + (r.price || 0), 0);
-    const pendingRevenue = requests.filter((r) => !r.paid).reduce((s, r) => s + (r.price || 0), 0);
+    const totalRevenue = requests.filter((r) => r.paid).reduce((s, r) => s + netOf(r), 0);
+    const pendingRevenue = requests.filter((r) => !r.paid).reduce((s, r) => s + netOf(r), 0);
+    const totalDiscounts = requests
+      .filter((r) => r.discount_approved && (r.discount_amount || 0) > 0)
+      .reduce((s, r) => s + Number(r.discount_amount || 0), 0);
     const completedRequests = requests.filter((r) => r.status === "completed").length;
     const pendingRequests = requests.filter((r) => r.status === "pending").length;
     const cancelledRequests = requests.filter((r) => r.status === "cancelled").length;
@@ -75,8 +83,8 @@ export default function ReportsPanel() {
     requests.forEach((r) => {
       if (!svcCounts[r.service_name]) svcCounts[r.service_name] = { count: 0, revenue: 0, paid: 0 };
       svcCounts[r.service_name].count++;
-      svcCounts[r.service_name].revenue += r.price || 0;
-      if (r.paid) svcCounts[r.service_name].paid += r.price || 0;
+      svcCounts[r.service_name].revenue += netOf(r);
+      if (r.paid) svcCounts[r.service_name].paid += netOf(r);
     });
     const popularServices = Object.entries(svcCounts)
       .map(([name, d]) => ({ name, ...d }))
@@ -106,7 +114,7 @@ export default function ReportsPanel() {
     const dailyTrend = Object.entries(dailyMap).map(([date, d]) => ({ date, ...d }));
 
     return {
-      totalRequests, totalJobs, totalRevenue, pendingRevenue,
+      totalRequests, totalJobs, totalRevenue, pendingRevenue, totalDiscounts,
       completedRequests, pendingRequests, cancelledRequests,
       uniqueCustomers, popularServices, branchCounts, dailyTrend,
     };
@@ -122,12 +130,12 @@ export default function ReportsPanel() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Reports & Analytics</h2>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">Track performance, revenue and customer activity.</p>
+          <h2 className="text-xl sm:text-2xl font-bold admin-text">Reports & Analytics</h2>
+          <p className="text-xs sm:text-sm admin-muted mt-1">Track performance, revenue and customer activity.</p>
         </div>
         <div className="flex gap-2">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-36 bg-[hsl(var(--admin-surface))] border-[hsl(var(--admin-border))] text-slate-100">
+            <SelectTrigger className="w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -137,7 +145,7 @@ export default function ReportsPanel() {
               <SelectItem value="90">Last 90 days</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={fetchData} className="border-[hsl(var(--admin-border))] text-slate-200">
+          <Button variant="outline" size="icon" onClick={fetchData}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
@@ -151,6 +159,12 @@ export default function ReportsPanel() {
         <StatCard icon={DollarSign} label="Pending Revenue" value={`KES ${stats.pendingRevenue.toLocaleString()}`} tone="warning" />
       </div>
 
+      {stats.totalDiscounts > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <StatCard icon={DollarSign} label="Discounts Applied" value={`KES ${stats.totalDiscounts.toLocaleString()}`} tone="info" />
+        </div>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard icon={CheckCircle2} label="Completed" value={stats.completedRequests} tone="success" />
         <StatCard icon={Clock} label="Pending" value={stats.pendingRequests} tone="warning" />
@@ -161,7 +175,7 @@ export default function ReportsPanel() {
       {/* Daily trend chart */}
       <Card className="admin-surface border-0">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm sm:text-base flex items-center gap-2 text-slate-100">
+          <CardTitle className="text-sm sm:text-base flex items-center gap-2 admin-text">
             <BarChart3 className="h-4 w-4 text-primary" /> Daily Activity
           </CardTitle>
         </CardHeader>
@@ -169,20 +183,20 @@ export default function ReportsPanel() {
           <div className="flex items-end gap-1 h-36 overflow-x-auto pb-1">
             {stats.dailyTrend.map((d) => (
               <div key={d.date} className="flex flex-col items-center gap-0.5 min-w-[28px] flex-1">
-                <span className="text-[10px] font-medium text-slate-200">{d.requests + d.jobs}</span>
+                <span className="text-[10px] font-medium admin-text">{d.requests + d.jobs}</span>
                 <div className="w-full flex flex-col gap-px" style={{ height: `${((d.requests + d.jobs) / maxDaily) * 100}%`, minHeight: 4 }}>
-                  <div className="flex-1 rounded-t-sm bg-gradient-to-t from-primary/60 to-primary" style={{ flex: d.requests }} />
-                  {d.jobs > 0 && <div className="rounded-b-sm bg-gradient-to-t from-sky-400/70 to-sky-300" style={{ flex: d.jobs }} />}
+                  <div className="flex-1 rounded-t-sm bg-primary" style={{ flex: d.requests }} />
+                  {d.jobs > 0 && <div className="rounded-b-sm bg-primary/40" style={{ flex: d.jobs }} />}
                 </div>
-                <span className="text-[9px] text-slate-400 whitespace-nowrap">
+                <span className="text-[9px] admin-muted whitespace-nowrap">
                   {new Date(d.date).toLocaleDateString("en", { day: "numeric", month: "short" })}
                 </span>
               </div>
             ))}
           </div>
-          <div className="flex gap-4 mt-3 text-xs text-slate-400">
+          <div className="flex gap-4 mt-3 text-xs admin-muted">
             <span className="flex items-center gap-1"><span className="w-3 h-3 bg-primary rounded-sm" /> Requests</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 bg-sky-300 rounded-sm" /> Print Jobs</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 bg-primary/40 rounded-sm" /> Print Jobs</span>
           </div>
         </CardContent>
       </Card>
@@ -191,7 +205,7 @@ export default function ReportsPanel() {
       <div className="grid md:grid-cols-2 gap-4">
         <Card className="admin-surface border-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm sm:text-base flex items-center gap-2 text-slate-100">
+            <CardTitle className="text-sm sm:text-base flex items-center gap-2 admin-text">
               <TrendingUp className="h-4 w-4 text-primary" /> Popular Services
             </CardTitle>
           </CardHeader>
@@ -199,24 +213,24 @@ export default function ReportsPanel() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-[hsl(var(--admin-border))]">
-                    <TableHead className="text-slate-300">Service</TableHead>
-                    <TableHead className="text-right text-slate-300">Requests</TableHead>
-                    <TableHead className="text-right hidden sm:table-cell text-slate-300">Revenue</TableHead>
+                  <TableRow>
+                    <TableHead>Service</TableHead>
+                    <TableHead className="text-right">Requests</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">Revenue</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {stats.popularServices.slice(0, 10).map((s) => (
-                    <TableRow key={s.name} className="border-[hsl(var(--admin-border))]">
-                      <TableCell className="text-sm font-medium text-slate-100">{s.name}</TableCell>
-                      <TableCell className="text-right text-slate-200">{s.count}</TableCell>
-                      <TableCell className="text-right hidden sm:table-cell text-slate-400">
+                    <TableRow key={s.name}>
+                      <TableCell className="text-sm font-medium admin-text">{s.name}</TableCell>
+                      <TableCell className="text-right admin-text">{s.count}</TableCell>
+                      <TableCell className="text-right hidden sm:table-cell admin-muted">
                         KES {s.revenue.toLocaleString()}
                       </TableCell>
                     </TableRow>
                   ))}
                   {stats.popularServices.length === 0 && (
-                    <TableRow><TableCell colSpan={3} className="text-center text-slate-400 py-6">No data</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={3} className="text-center admin-muted py-6">No data</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -226,23 +240,23 @@ export default function ReportsPanel() {
 
         <Card className="admin-surface border-0">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm sm:text-base text-slate-100">Branch Breakdown</CardTitle>
+            <CardTitle className="text-sm sm:text-base admin-text">Branch Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
             {Object.keys(stats.branchCounts).length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">No data</p>
+              <p className="text-sm admin-muted text-center py-6">No data</p>
             ) : (
               <div className="space-y-3">
                 {Object.entries(stats.branchCounts).map(([branch, count]) => {
                   const pct = stats.totalRequests > 0 ? Math.round((count / stats.totalRequests) * 100) : 0;
                   return (
                     <div key={branch}>
-                      <div className="flex justify-between text-sm mb-1 text-slate-200">
+                      <div className="flex justify-between text-sm mb-1 admin-text">
                         <span className="capitalize font-medium">{branch}</span>
-                        <span className="text-slate-400">{count} ({pct}%)</span>
+                        <span className="admin-muted">{count} ({pct}%)</span>
                       </div>
                       <div className="h-2 bg-[hsl(var(--admin-surface-2))] rounded-full overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-primary to-sky-400 transition-all" style={{ width: `${pct}%` }} />
+                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -257,28 +271,24 @@ export default function ReportsPanel() {
 }
 
 const TONE_CLASS: Record<string, string> = {
-  primary: "stat-grad-primary",
-  success: "stat-grad-success",
-  warning: "stat-grad-warning",
-  danger:  "stat-grad-danger",
-  info:    "stat-grad-info",
-};
-const TONE_ICON: Record<string, string> = {
-  primary: "text-sky-300",
-  success: "text-emerald-300",
-  warning: "text-amber-300",
-  danger:  "text-rose-300",
-  info:    "text-violet-300",
+  primary: "tone-primary",
+  success: "tone-success",
+  warning: "tone-warning",
+  danger:  "tone-danger",
+  info:    "tone-info",
 };
 
 function StatCard({ icon: Icon, label, value, tone = "primary" }: { icon: any; label: string; value: string | number; tone?: string }) {
   return (
-    <div className={`stat-card ${TONE_CLASS[tone]}`}>
+    <div className="stat-card">
       <div className="flex items-center justify-between">
-        <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${TONE_ICON[tone]}`} />
-        <span className="text-[10px] uppercase tracking-wider text-slate-400 leading-tight text-right">{label}</span>
+        <span className={`inline-flex items-center justify-center h-9 w-9 rounded-lg ${TONE_CLASS[tone]}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="text-[10px] uppercase tracking-wider admin-muted text-right leading-tight">{label}</span>
       </div>
-      <p className="mt-2 text-base sm:text-2xl font-bold text-slate-50 tabular-nums">{value}</p>
+      <p className="mt-3 text-base sm:text-2xl font-bold admin-text tabular-nums">{value}</p>
     </div>
   );
 }
+

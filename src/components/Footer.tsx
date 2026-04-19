@@ -1,4 +1,5 @@
 import { Mail, Phone, MapPin, Clock } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useBusinessSettings } from "@/hooks/useBusinessSettings";
 
 const Footer = () => {
@@ -26,6 +27,7 @@ const Footer = () => {
               <li><a href="#upload" className="hover:text-accent transition-colors">Upload & Print</a></li>
               <li><a href="#booking" className="hover:text-accent transition-colors">Book a Service</a></li>
               <li><a href="#branches" className="hover:text-accent transition-colors">Our Branches</a></li>
+              <li><Link to="/terms" className="hover:text-accent transition-colors">Terms of Service</Link></li>
             </ul>
           </div>
 
@@ -64,8 +66,9 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="border-t border-background/10 pt-6 text-center text-sm text-background/40">
-          © {new Date().getFullYear()} {settings.business_name || "Expertech Cyber"}. All rights reserved.
+        <div className="border-t border-background/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-background/40">
+          <p>© {new Date().getFullYear()} {settings.business_name || "Expertech Cyber"}. All rights reserved.</p>
+          <Link to="/terms" className="hover:text-accent transition-colors">Terms of Service</Link>
         </div>
       </div>
     </footer>

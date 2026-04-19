@@ -166,8 +166,8 @@ export default function ServicesManagement() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Services Management</h2>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1">Define services, prices, payment timing and required customer details.</p>
+        <h2 className="text-xl sm:text-2xl font-bold admin-text">Services Management</h2>
+        <p className="text-xs sm:text-sm admin-muted mt-1">Define services, prices, payment timing and required customer details.</p>
       </div>
 
       <Tabs defaultValue="services">

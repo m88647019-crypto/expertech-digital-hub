@@ -48,6 +48,11 @@ export interface ServiceRequest {
   payment_method: string | null;
   payment_reference: string | null;
   admin_notes: string | null;
+  discount_amount?: number;
+  discount_reason?: string | null;
+  discount_approved?: boolean;
+  discount_approved_by?: string | null;
+  discount_approved_at?: string | null;
   created_at: string;
   updated_at: string;
 }

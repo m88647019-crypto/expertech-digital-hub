@@ -1,12 +1,12 @@
 import { motion } from "framer-motion";
 import { useActiveServices } from "@/hooks/useServices";
+import { usePriceVisibility } from "@/hooks/usePriceVisibility";
 import {
   Landmark, FileText, Printer, ScanLine, BookOpen, ShieldCheck, GraduationCap,
   Palette, Monitor, Package, FileCheck, BadgeCheck, ClipboardList, Layers,
   Briefcase, FileUser, Globe, Loader2, type LucideIcon,
 } from "lucide-react";
 
-// Map icon names to components
 const ICON_MAP: Record<string, LucideIcon> = {
   Landmark, FileText, Printer, ScanLine, BookOpen, ShieldCheck, GraduationCap,
   Palette, Monitor, Package, FileCheck, BadgeCheck, ClipboardList, Layers,
@@ -15,14 +15,13 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 const ServicesGrid = () => {
   const { services, categories, loading } = useActiveServices();
+  const { showPrices } = usePriceVisibility();
 
-  // Group services by category
   const grouped = categories.map((cat) => ({
     ...cat,
     services: services.filter((s) => s.category_name === cat.name),
   })).filter((g) => g.services.length > 0);
 
-  // Fallback while loading or if no data from DB
   if (loading) {
     return (
       <section id="services" className="py-16 md:py-20">
@@ -70,7 +69,7 @@ const ServicesGrid = () => {
                   {cat.services.map((svc) => (
                     <li key={svc.id} className="flex items-center justify-between gap-2 text-sm">
                       <span>{svc.name}</span>
-                      {svc.price > 0 && (
+                      {showPrices && svc.price > 0 && (
                         <span className="text-xs text-muted-foreground whitespace-nowrap">KES {svc.price}</span>
                       )}
                     </li>
