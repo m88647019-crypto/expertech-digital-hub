@@ -157,6 +157,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   }, []);
 
+  // Idle auto-logout (30 minutes of no activity) — protects admin panel
+  useEffect(() => {
+    if (!state.user) return;
+    const IDLE_MS = 30 * 60 * 1000;
+    let timer: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        supabase.auth.signOut();
+        try {
+          // sonner toast (already mounted globally)
+          const evt = new CustomEvent("app:idle-logout");
+          window.dispatchEvent(evt);
+        } catch {}
+      }, IDLE_MS);
+    };
+    const events = ["mousemove", "keydown", "click", "touchstart", "scroll"];
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [state.user]);
+
   const hasPermission = useCallback(
     (key: string) => state.role === "admin" || !!state.permissions[key],
     [state.role, state.permissions]

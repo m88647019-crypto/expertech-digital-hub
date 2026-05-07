@@ -146,6 +146,172 @@ export type Database = {
         }
         Relationships: []
       }
+      service_categories: {
+        Row: {
+          created_at: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      service_requests: {
+        Row: {
+          admin_notes: string | null
+          branch: string | null
+          created_at: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string
+          details: string | null
+          discount_amount: number
+          discount_approved: boolean
+          discount_approved_at: string | null
+          discount_approved_by: string | null
+          discount_reason: string | null
+          id: string
+          paid: boolean | null
+          payment_method: string | null
+          payment_reference: string | null
+          price: number | null
+          service_id: string | null
+          service_name: string
+          status: Database["public"]["Enums"]["service_request_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          branch?: string | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone: string
+          details?: string | null
+          discount_amount?: number
+          discount_approved?: boolean
+          discount_approved_at?: string | null
+          discount_approved_by?: string | null
+          discount_reason?: string | null
+          id?: string
+          paid?: boolean | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          price?: number | null
+          service_id?: string | null
+          service_name: string
+          status?: Database["public"]["Enums"]["service_request_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          branch?: string | null
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string
+          details?: string | null
+          discount_amount?: number
+          discount_approved?: boolean
+          discount_approved_at?: string | null
+          discount_approved_by?: string | null
+          discount_reason?: string | null
+          id?: string
+          paid?: boolean | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          price?: number | null
+          service_id?: string | null
+          service_name?: string
+          status?: Database["public"]["Enums"]["service_request_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_requests_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      services: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          description: string | null
+          detail_hint: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          payment_timing: Database["public"]["Enums"]["payment_timing"] | null
+          price: number | null
+          required_fields: Json | null
+          requires_details: boolean | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          detail_hint?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          payment_timing?: Database["public"]["Enums"]["payment_timing"] | null
+          price?: number | null
+          required_fields?: Json | null
+          requires_details?: boolean | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          detail_hint?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          payment_timing?: Database["public"]["Enums"]["payment_timing"] | null
+          price?: number | null
+          required_fields?: Json | null
+          requires_details?: boolean | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "services_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -189,6 +355,13 @@ export type Database = {
         | "collected"
         | "cancelled"
       payment_method: "cash" | "mpesa" | "card"
+      payment_timing: "pay_first" | "pay_after"
+      service_request_status:
+        | "pending"
+        | "confirmed"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -326,6 +499,14 @@ export const Constants = {
         "cancelled",
       ],
       payment_method: ["cash", "mpesa", "card"],
+      payment_timing: ["pay_first", "pay_after"],
+      service_request_status: [
+        "pending",
+        "confirmed",
+        "in_progress",
+        "completed",
+        "cancelled",
+      ],
     },
   },
 } as const
