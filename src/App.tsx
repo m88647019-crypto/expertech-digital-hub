@@ -16,7 +16,17 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  useEffect(() => {
+    const onIdle = () => {
+      toast.warning("Session expired", {
+        description: "You were signed out due to inactivity. Please log in again.",
+      });
+    };
+    window.addEventListener("app:idle-logout", onIdle);
+    return () => window.removeEventListener("app:idle-logout", onIdle);
+  }, []);
+  return (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
