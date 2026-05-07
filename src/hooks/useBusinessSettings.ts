@@ -28,11 +28,19 @@ export function useBusinessSettings() {
     (async () => {
       const { data } = await supabase.from("business_settings").select("key, value");
       if (data && data.length > 0) {
-        const map = { ...DEFAULTS };
-        data.forEach((row: any) => {
-          if (row.key && row.value) map[row.key] = row.value;
+        const raw: Record<string, string> = {};
+        data.forEach((row: any) => { if (row.key) raw[row.key] = row.value ?? ""; });
+        // Map legacy keys → canonical keys (only if canonical empty)
+        const aliases: Record<string, string> = {
+          phone_number: "contact_phone",
+          email: "contact_email",
+          price_per_page_bw: "bw_price",
+          price_per_page_color: "color_price",
+        };
+        Object.entries(aliases).forEach(([legacy, canonical]) => {
+          if (!raw[canonical] && raw[legacy]) raw[canonical] = raw[legacy];
         });
-        setSettings(map);
+        setSettings({ ...DEFAULTS, ...raw } as BusinessSettings);
       }
       setLoading(false);
     })();
