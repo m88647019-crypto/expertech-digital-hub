@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, supabase as db } from "@/lib/supabaseClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,10 +14,6 @@ import {
   CheckCircle2, Clock, XCircle, BarChart3, RefreshCw,
 } from "lucide-react";
 
-const db = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-);
 
 interface ServiceRequest {
   id: string;
