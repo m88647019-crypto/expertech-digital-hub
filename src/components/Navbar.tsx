@@ -21,6 +21,28 @@ const Navbar = () => {
     });
   }, []);
 
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
+  // Close menu on Escape key and on resize to desktop
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onResize = () => { if (window.innerWidth >= 768) setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
+
   return (
     <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-md border-b border-border">
       <div className="container flex items-center justify-between h-16">
