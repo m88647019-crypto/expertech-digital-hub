@@ -1,9 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const db = createClient(supabaseUrl, supabaseKey);
+import { supabase as db } from "@/lib/supabaseClient";
 
 export interface ServiceCategory {
   id: string;
@@ -85,7 +81,7 @@ export function useServicesAdmin() {
       .from("services")
       .select("*")
       .order("sort_order", { ascending: true });
-    setServices(data || []);
+    setServices((data || []) as unknown as Service[]);
     setLoading(false);
   }, []);
 
@@ -105,7 +101,7 @@ export function useActiveServices() {
         db.from("services").select("*").eq("is_active", true).order("sort_order"),
       ]);
       const cats: ServiceCategory[] = catRes.data || [];
-      const svcs: Service[] = svcRes.data || [];
+      const svcs: Service[] = (svcRes.data || []) as unknown as Service[];
       const catMap = Object.fromEntries(cats.map((c) => [c.id, c.name]));
       setCategories(cats);
       setServices(svcs.map((s) => ({ ...s, category_name: catMap[s.category_id || ""] || "Other" })));

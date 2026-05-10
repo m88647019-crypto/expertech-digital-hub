@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase as db } from "@/lib/supabaseClient";
 import { useServiceCategories, useServicesAdmin } from "@/hooks/useServices";
 import type { Service, ServiceCategory, RequiredField } from "@/hooks/useServices";
 import { Card } from "@/components/ui/card";
@@ -22,10 +22,6 @@ import { Plus, Trash2, Loader2, Edit, FolderPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const db = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-);
 
 export default function ServicesManagement() {
   const { categories, loading: catLoading, refetch: refetchCats } = useServiceCategories();

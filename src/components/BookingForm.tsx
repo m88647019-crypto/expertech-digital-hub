@@ -4,14 +4,9 @@ import { CalendarCheck, Loader2, Check, RefreshCw, X, Plus, Info } from "lucide-
 import { useToast } from "@/hooks/use-toast";
 import { useActiveServices } from "@/hooks/useServices";
 import type { Service } from "@/hooks/useServices";
-import { createClient } from "@supabase/supabase-js";
+import { supabase as db } from "@/lib/supabaseClient";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-
-const db = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-);
 
 const POLL_INTERVAL = 3000;
 const POLL_TIMEOUT = 60000;
