@@ -85,60 +85,81 @@ const Navbar = () => {
         </nav>
 
         {/* Mobile toggle */}
-        <button onClick={() => setOpen(!open)} className="md:hidden p-2 text-foreground" aria-label="Toggle menu">
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        <button
+          onClick={() => setOpen(!open)}
+          className="md:hidden p-2 text-foreground rounded-lg hover:bg-muted transition-colors"
+          aria-label="Toggle menu"
+          aria-expanded={open}
+          aria-controls="mobile-menu"
+        >
+          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
 
       {/* Mobile menu */}
       <AnimatePresence>
         {open && (
-          <motion.nav
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-t border-border overflow-hidden bg-card"
-          >
-            <div className="container py-4 space-y-3">
-              {links.map((l) => (
-                <a
-                  key={l.href}
-                  href={l.href}
-                  onClick={() => setOpen(false)}
-                  className="block text-sm font-medium text-muted-foreground hover:text-primary py-2"
-                >
-                  {l.label}
-                </a>
-              ))}
-              <a
-                href="https://wa.me/254746721989"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full text-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
-              >
-                Contact Us on WhatsApp
-              </a>
-              {adminExists === false ? (
-                <a
-                  href="/register"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-primary px-4 py-2.5 text-sm font-medium text-primary"
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  Setup Admin
-                </a>
-              ) : (
-                <a
-                  href="/login"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground"
-                >
-                  <LogIn className="h-4 w-4" />
-                  Staff Login
-                </a>
-              )}
-            </div>
-          </motion.nav>
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setOpen(false)}
+              className="md:hidden fixed inset-0 top-16 z-30 bg-black/40 backdrop-blur-sm"
+              aria-hidden="true"
+            />
+            <motion.nav
+              id="mobile-menu"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden fixed left-0 right-0 top-16 z-40 border-t border-border bg-card shadow-lg max-h-[calc(100vh-4rem)] overflow-y-auto"
+            >
+              <div className="container py-4 space-y-2">
+                {links.map((l) => (
+                  <a
+                    key={l.href}
+                    href={l.href}
+                    onClick={() => setOpen(false)}
+                    className="block text-base font-medium text-foreground hover:text-primary hover:bg-muted px-3 py-3 rounded-lg transition-colors"
+                  >
+                    {l.label}
+                  </a>
+                ))}
+                <div className="pt-2 mt-2 space-y-2 border-t border-border">
+                  <a
+                    href="https://wa.me/254746721989"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setOpen(false)}
+                    className="block w-full text-center rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
+                  >
+                    Contact Us on WhatsApp
+                  </a>
+                  {adminExists === false ? (
+                    <a
+                      href="/register"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-primary px-4 py-3 text-sm font-medium text-primary"
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      Setup Admin
+                    </a>
+                  ) : (
+                    <a
+                      href="/login"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-border px-4 py-3 text-sm font-medium text-foreground"
+                    >
+                      <LogIn className="h-4 w-4" />
+                      Staff Login
+                    </a>
+                  )}
+                </div>
+              </div>
+            </motion.nav>
+          </>
         )}
       </AnimatePresence>
     </header>
