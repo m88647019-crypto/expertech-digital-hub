@@ -129,6 +129,7 @@ const Navbar = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setOpen(false)}
+              onTouchMove={preventScroll}
               className="md:hidden fixed inset-0 top-16 z-30 bg-black/40 backdrop-blur-sm"
               aria-hidden="true"
             />
@@ -140,17 +141,27 @@ const Navbar = () => {
               transition={{ duration: 0.2 }}
               className="md:hidden fixed left-0 right-0 top-16 z-40 border-t border-border bg-card shadow-lg max-h-[calc(100vh-4rem)] overflow-y-auto"
             >
-              <div className="container py-4 space-y-2">
-                {links.map((l) => (
-                  <a
-                    key={l.href}
-                    href={l.href}
-                    onClick={() => setOpen(false)}
-                    className="block text-base font-medium text-foreground hover:text-primary hover:bg-muted px-3 py-3 rounded-lg transition-colors"
-                  >
-                    {l.label}
-                  </a>
-                ))}
+              <div className="container py-4 space-y-1">
+                {links.map((l) => {
+                  const isActive = activeHash === l.href;
+                  return (
+                    <a
+                      key={l.href}
+                      href={l.href}
+                      onClick={() => {
+                        setActiveHash(l.href);
+                        setOpen(false);
+                      }}
+                      className={`block text-base font-medium px-3 py-3 rounded-lg transition-colors ${
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-foreground hover:text-primary hover:bg-muted"
+                      }`}
+                    >
+                      {l.label}
+                    </a>
+                  );
+                })}
                 <div className="pt-2 mt-2 space-y-2 border-t border-border">
                   <a
                     href="https://wa.me/254746721989"
