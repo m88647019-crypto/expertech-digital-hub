@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Menu, X, LogIn, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabaseClient";
@@ -13,6 +13,7 @@ const links = [
 const Navbar = () => {
   const [open, setOpen] = useState(false);
   const [adminExists, setAdminExists] = useState<boolean | null>(null);
+  const [activeHash, setActiveHash] = useState(window.location.hash);
 
   useEffect(() => {
     supabase.rpc("admin_exists").then(({ data, error }) => {
@@ -21,15 +22,38 @@ const Navbar = () => {
     });
   }, []);
 
-  // Lock body scroll when mobile menu is open
+  // Track hash changes for active link highlighting
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
+    const onHashChange = () => setActiveHash(window.location.hash);
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  // Robust body scroll lock when mobile menu is open
+  useEffect(() => {
+    if (!open) return;
+
+    const scrollY = window.scrollY;
+    const originalStyle = document.body.style.cssText;
+
+    // Lock scroll: works on iOS Safari + desktop
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.overflow = "hidden";
+    document.body.style.width = "100%";
+
+    return () => {
+      document.body.style.cssText = originalStyle;
+      window.scrollTo(0, scrollY);
+    };
   }, [open]);
+
+  // Prevent touchmove on backdrop from scrolling the page behind (iOS fallback)
+  const preventScroll = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+  }, []);
 
   // Close menu on Escape key and on resize to desktop
   useEffect(() => {
