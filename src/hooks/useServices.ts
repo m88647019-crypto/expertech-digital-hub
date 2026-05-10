@@ -81,7 +81,7 @@ export function useServicesAdmin() {
       .from("services")
       .select("*")
       .order("sort_order", { ascending: true });
-    setServices(data || []);
+    setServices((data || []) as unknown as Service[]);
     setLoading(false);
   }, []);
 
@@ -101,7 +101,7 @@ export function useActiveServices() {
         db.from("services").select("*").eq("is_active", true).order("sort_order"),
       ]);
       const cats: ServiceCategory[] = catRes.data || [];
-      const svcs: Service[] = svcRes.data || [];
+      const svcs: Service[] = (svcRes.data || []) as unknown as Service[];
       const catMap = Object.fromEntries(cats.map((c) => [c.id, c.name]));
       setCategories(cats);
       setServices(svcs.map((s) => ({ ...s, category_name: catMap[s.category_id || ""] || "Other" })));
