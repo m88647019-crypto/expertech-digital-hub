@@ -128,15 +128,19 @@ export function useServiceRequests() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const fetchDataRef = useRef(fetchData);
+  useEffect(() => { fetchDataRef.current = fetchData; }, [fetchData]);
+
   useEffect(() => {
+    const channelName = `service-requests-realtime-${Math.random().toString(36).slice(2, 9)}`;
     const channel = db
-      .channel("service-requests-realtime")
+      .channel(channelName)
       .on("postgres_changes", { event: "*", schema: "public", table: "service_requests" }, () => {
-        fetchData();
+        fetchDataRef.current();
       })
       .subscribe();
     return () => { db.removeChannel(channel); };
-  }, [fetchData]);
+  }, []);
 
   const updateRequest = async (id: string, updates: Partial<ServiceRequest>) => {
     const { error } = await db.from("service_requests").update(updates).eq("id", id);
