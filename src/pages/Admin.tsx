@@ -63,8 +63,9 @@ const AdminInner = () => {
   }, [isMobile, setOpenMobile]);
 
   useEffect(() => {
+    const channelName = `admin-notifications-${Math.random().toString(36).slice(2, 9)}`;
     const channel = supabase
-      .channel("admin-notifications")
+      .channel(channelName)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "print_jobs" }, () => {
         setNewJobCount((c) => c + 1);
       })

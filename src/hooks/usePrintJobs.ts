@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { PrintJob, JobStatus } from "@/types/printJob";
 
@@ -55,17 +55,23 @@ export function usePrintJobs() {
     fetchJobs();
   }, [fetchJobs]);
 
-  // Realtime subscription
+  // Keep a ref to the latest fetch so the realtime subscription
+  // doesn't get torn down and recreated whenever filters change.
+  const fetchJobsRef = useRef(fetchJobs);
+  useEffect(() => { fetchJobsRef.current = fetchJobs; }, [fetchJobs]);
+
+  // Realtime subscription — mount ONCE per hook instance.
   useEffect(() => {
+    const channelName = `print-jobs-realtime-${Math.random().toString(36).slice(2, 9)}`;
     const channel = supabase
-      .channel("print-jobs-realtime")
+      .channel(channelName)
       .on("postgres_changes", { event: "*", schema: "public", table: "print_jobs" }, () => {
-        fetchJobs();
+        fetchJobsRef.current();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [fetchJobs]);
+  }, []);
 
   const updateJob = async (id: string, updates: Partial<PrintJob>) => {
     const { error } = await supabase.from("print_jobs").update(updates).eq("id", id);

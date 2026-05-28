@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -52,17 +52,20 @@ const Dashboard = () => {
   }, [token, search, toast]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  // Mount realtime subscription ONCE; use ref to avoid re-subscribing on search change.
+  const fetchOrdersRef = useRef(fetchOrders);
+  useEffect(() => { fetchOrdersRef.current = fetchOrders; }, [fetchOrders]);
 
-  // Realtime updates
   useEffect(() => {
+    const channelName = `cashier-orders-${Math.random().toString(36).slice(2, 9)}`;
     const channel = supabase
-      .channel("cashier-orders")
+      .channel(channelName)
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" } as any, () => {
-        fetchOrders();
+        fetchOrdersRef.current();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchOrders]);
+  }, []);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     try {
