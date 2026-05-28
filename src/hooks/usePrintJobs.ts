@@ -52,6 +52,9 @@ export function usePrintJobs() {
   }, [filters]);
 
   useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
+
   // Keep a ref to the latest fetch so the realtime subscription
   // doesn't get torn down and recreated whenever filters change.
   const fetchJobsRef = useRef(fetchJobs);
