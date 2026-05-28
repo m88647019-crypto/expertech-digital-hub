@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase as db } from "@/lib/supabaseClient";
 
 export interface ServiceCategory {
