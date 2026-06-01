@@ -11,15 +11,7 @@ const links = [
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
-  const [adminExists, setAdminExists] = useState<boolean | null>(null);
   const [activeHash, setActiveHash] = useState(window.location.hash);
-
-  useEffect(() => {
-    supabase.rpc("admin_exists").then(({ data, error }) => {
-      if (error) setAdminExists(true);
-      else setAdminExists(!!data);
-    });
-  }, []);
 
   // Track hash changes for active link highlighting
   useEffect(() => {
