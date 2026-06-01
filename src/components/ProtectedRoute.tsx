@@ -9,10 +9,10 @@ interface Props {
 }
 
 const ProtectedRoute = ({ children, requiredRole, requiredPermission }: Props) => {
-  const { user, role, loading, hasPermission } = useAuth();
+  const { user, role, loading, roleLoading, hasPermission } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || (user && roleLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
