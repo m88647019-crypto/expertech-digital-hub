@@ -146,25 +146,6 @@ const Navbar = () => {
                   >
                     Contact Us on WhatsApp
                   </a>
-                  {adminExists === false ? (
-                    <a
-                      href="/register"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-primary px-4 py-3 text-sm font-medium text-primary"
-                    >
-                      <ShieldCheck className="h-4 w-4" />
-                      Setup Admin
-                    </a>
-                  ) : (
-                    <a
-                      href="/login"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-border px-4 py-3 text-sm font-medium text-foreground"
-                    >
-                      <LogIn className="h-4 w-4" />
-                      Staff Login
-                    </a>
-                  )}
                 </div>
               </div>
             </motion.nav>
