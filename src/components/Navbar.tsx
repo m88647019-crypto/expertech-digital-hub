@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Menu, X, LogIn, ShieldCheck } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/lib/supabaseClient";
 
 const links = [
   { label: "Services", href: "#services" },
