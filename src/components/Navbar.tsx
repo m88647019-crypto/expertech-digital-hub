@@ -80,23 +80,6 @@ const Navbar = () => {
           >
             Contact Us
           </a>
-          {adminExists === false ? (
-            <a
-              href="/register"
-              className="flex items-center gap-1.5 rounded-lg border border-primary px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              Setup Admin
-            </a>
-          ) : (
-            <a
-              href="/login"
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-            >
-              <LogIn className="h-4 w-4" />
-              Staff Login
-            </a>
-          )}
         </nav>
 
         {/* Mobile toggle */}
