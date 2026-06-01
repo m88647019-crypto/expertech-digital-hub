@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Menu, X, LogIn, ShieldCheck } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/lib/supabaseClient";
 
 const links = [
   { label: "Services", href: "#services" },
@@ -12,15 +11,7 @@ const links = [
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
-  const [adminExists, setAdminExists] = useState<boolean | null>(null);
   const [activeHash, setActiveHash] = useState(window.location.hash);
-
-  useEffect(() => {
-    supabase.rpc("admin_exists").then(({ data, error }) => {
-      if (error) setAdminExists(true);
-      else setAdminExists(!!data);
-    });
-  }, []);
 
   // Track hash changes for active link highlighting
   useEffect(() => {
@@ -89,23 +80,6 @@ const Navbar = () => {
           >
             Contact Us
           </a>
-          {adminExists === false ? (
-            <a
-              href="/register"
-              className="flex items-center gap-1.5 rounded-lg border border-primary px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
-            >
-              <ShieldCheck className="h-4 w-4" />
-              Setup Admin
-            </a>
-          ) : (
-            <a
-              href="/login"
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-            >
-              <LogIn className="h-4 w-4" />
-              Staff Login
-            </a>
-          )}
         </nav>
 
         {/* Mobile toggle */}
@@ -172,25 +146,6 @@ const Navbar = () => {
                   >
                     Contact Us on WhatsApp
                   </a>
-                  {adminExists === false ? (
-                    <a
-                      href="/register"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-primary px-4 py-3 text-sm font-medium text-primary"
-                    >
-                      <ShieldCheck className="h-4 w-4" />
-                      Setup Admin
-                    </a>
-                  ) : (
-                    <a
-                      href="/login"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center justify-center gap-1.5 w-full rounded-lg border border-border px-4 py-3 text-sm font-medium text-foreground"
-                    >
-                      <LogIn className="h-4 w-4" />
-                      Staff Login
-                    </a>
-                  )}
                 </div>
               </div>
             </motion.nav>
